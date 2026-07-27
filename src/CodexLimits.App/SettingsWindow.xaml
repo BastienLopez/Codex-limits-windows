@@ -1,0 +1,121 @@
+<Window x:Class="CodexLimits.App.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Paramètres du suivi"
+        Width="500" Height="520"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource WindowBackground}"
+        Foreground="{StaticResource PrimaryText}"
+        FontFamily="Segoe UI"
+        ShowInTaskbar="False">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Margin="0,0,0,18">
+            <TextBlock Text="Créneau de consommation" FontSize="22" FontWeight="SemiBold" />
+            <TextBlock Text="La courbe Target et les projections ignorent tout le temps situé hors de ce créneau."
+                       Foreground="{StaticResource SecondaryText}" Margin="0,6,0,0" TextWrapping="Wrap" />
+        </StackPanel>
+
+        <Border Grid.Row="1" Style="{StaticResource CardStyle}" Margin="0,0,0,12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="100" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <TextBlock Text="Début" FontWeight="SemiBold" Margin="0,0,0,6" />
+                <ComboBox x:Name="StartDayCombo" Grid.Row="1" Margin="0,0,10,0"
+                          DisplayMemberPath="Label" SelectedValuePath="Value" />
+                <TextBlock Grid.Column="1" Text="Heure" FontWeight="SemiBold" Margin="0,0,0,6" />
+                <TextBox x:Name="StartTimeBox" Grid.Row="1" Grid.Column="1" ToolTip="Format HH:mm" />
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="2" Style="{StaticResource CardStyle}" Margin="0,0,0,12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="100" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <TextBlock Text="Fin" FontWeight="SemiBold" Margin="0,0,0,6" />
+                <ComboBox x:Name="EndDayCombo" Grid.Row="1" Margin="0,0,10,0"
+                          DisplayMemberPath="Label" SelectedValuePath="Value" />
+                <TextBlock Grid.Column="1" Text="Heure" FontWeight="SemiBold" Margin="0,0,0,6" />
+                <TextBox x:Name="EndTimeBox" Grid.Row="1" Grid.Column="1" ToolTip="Format HH:mm" />
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="3" Style="{StaticResource CardStyle}" Margin="0,0,0,12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="120" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <TextBlock Text="Actualisation automatique" FontWeight="SemiBold" />
+                <TextBlock Grid.Row="1" Text="Intervalle en minutes" Foreground="{StaticResource SecondaryText}" Margin="0,5,0,0" />
+                <ComboBox x:Name="RefreshIntervalCombo" Grid.Column="1" Grid.RowSpan="2"
+                          IsEditable="True" VerticalAlignment="Center" />
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="4" Style="{StaticResource CardStyle}" Margin="0,0,0,12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="100" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <TextBlock Text="Réserve de sécurité" FontWeight="SemiBold" />
+                <TextBlock Grid.Row="1" Text="Quota à conserver au reset" Foreground="{StaticResource SecondaryText}" Margin="0,5,0,0" />
+                <StackPanel Grid.Column="1" Grid.RowSpan="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBox x:Name="SafetyBufferBox" Width="62" />
+                    <TextBlock Text=" %" VerticalAlignment="Center" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <CheckBox x:Name="PauseOutsideCheckBox" Grid.Row="5" VerticalAlignment="Top"
+                  Content="Suspendre les actualisations automatiques hors créneau" />
+
+        <Grid Grid.Row="6" Margin="0,18,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock x:Name="ValidationText" Foreground="{StaticResource WarningBrush}"
+                       VerticalAlignment="Center" TextWrapping="Wrap" />
+            <Button Grid.Column="1" Content="Annuler" Margin="10,0,8,0" Click="CancelButton_Click" />
+            <Button Grid.Column="2" Content="Enregistrer" Background="#FF2869C7" BorderBrush="#FF4C8DE8"
+                    Click="SaveButton_Click" />
+        </Grid>
+    </Grid>
+</Window>

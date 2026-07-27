@@ -1,0 +1,94 @@
+<Window x:Class="CodexLimits.App.ScheduleSettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Planning d’utilisation"
+        Width="470" Height="530"
+        MinWidth="450" MinHeight="500"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner"
+        ShowInTaskbar="False"
+        Background="{StaticResource WindowBackground}"
+        Foreground="{StaticResource PrimaryText}"
+        FontFamily="Segoe UI">
+    <Border Margin="12" Padding="22" CornerRadius="18"
+            Background="{StaticResource PanelBackground}"
+            BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <StackPanel Grid.Row="0">
+                <TextBlock Text="Planning actif" FontSize="24" FontWeight="SemiBold" />
+                <TextBlock Margin="0,6,0,0"
+                           Text="Les périodes non sélectionnées sont ignorées dans les projections et aucune actualisation automatique n’y est lancée."
+                           Foreground="{StaticResource SecondaryText}"
+                           TextWrapping="Wrap" />
+            </StackPanel>
+
+            <Border Grid.Row="1" Margin="0,22,0,0" Padding="14" CornerRadius="12"
+                    Background="#FF17191C" BorderBrush="#FF303338" BorderThickness="1">
+                <StackPanel>
+                    <TextBlock Text="Jours actifs" FontWeight="SemiBold" Margin="0,0,0,12" />
+                    <UniformGrid Columns="4" Rows="2">
+                        <CheckBox x:Name="MondayBox" Content="Lundi" Margin="0,5" />
+                        <CheckBox x:Name="TuesdayBox" Content="Mardi" Margin="0,5" />
+                        <CheckBox x:Name="WednesdayBox" Content="Mercredi" Margin="0,5" />
+                        <CheckBox x:Name="ThursdayBox" Content="Jeudi" Margin="0,5" />
+                        <CheckBox x:Name="FridayBox" Content="Vendredi" Margin="0,5" />
+                        <CheckBox x:Name="SaturdayBox" Content="Samedi" Margin="0,5" />
+                        <CheckBox x:Name="SundayBox" Content="Dimanche" Margin="0,5" />
+                    </UniformGrid>
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Row="2" Margin="0,12,0,0" Padding="14" CornerRadius="12"
+                    Background="#FF17191C" BorderBrush="#FF303338" BorderThickness="1">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="18" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel>
+                        <TextBlock Text="Début" Foreground="{StaticResource SecondaryText}" Margin="0,0,0,6" />
+                        <ComboBox x:Name="StartTimeBox" Height="32" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="2">
+                        <TextBlock Text="Fin" Foreground="{StaticResource SecondaryText}" Margin="0,0,0,6" />
+                        <ComboBox x:Name="EndTimeBox" Height="32" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <Border Grid.Row="3" Margin="0,12,0,0" Padding="14" CornerRadius="12"
+                    Background="#FF17191C" BorderBrush="#FF303338" BorderThickness="1">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="150" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel VerticalAlignment="Center">
+                        <TextBlock Text="Actualisation automatique" FontWeight="SemiBold" />
+                        <TextBlock Text="30 minutes recommandé" Foreground="{StaticResource SecondaryText}" FontSize="11" />
+                    </StackPanel>
+                    <ComboBox x:Name="RefreshMinutesBox" Grid.Column="1" Height="32" VerticalAlignment="Center" />
+                </Grid>
+            </Border>
+
+            <TextBlock Grid.Row="4" Margin="0,14,0,0"
+                       Text="Le bouton d’actualisation manuelle reste disponible à tout moment. Les réglages sont enregistrés uniquement dans ton profil Windows local."
+                       Foreground="{StaticResource SecondaryText}" TextWrapping="Wrap" />
+
+            <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
+                <Button Content="Annuler" Width="92" Margin="0,0,10,0" Click="CancelButton_Click" />
+                <Button Content="Enregistrer" Width="110" Click="SaveButton_Click" />
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>
