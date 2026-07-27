@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.Globalization;
-using System.Text;
 using System.Text.Json;
 
 namespace CodexLimits.Core;
@@ -38,14 +37,11 @@ public sealed class CodexAppServerClient : IUsageProvider
         startInfo.ArgumentList.Add("--listen");
         startInfo.ArgumentList.Add("stdio://");
 
-        var standardError = new StringBuilder();
         using var process = new Process { StartInfo = startInfo };
+        var errorLines = new System.Collections.Concurrent.ConcurrentQueue<string>();
         process.ErrorDataReceived += (_, eventArgs) =>
         {
-            if (!string.IsNullOrWhiteSpace(eventArgs.Data))
-            {
-                standardError.AppendLine(eventArgs.Data);
-            }
+            if (!string.IsNullOrWhiteSpace(eventArgs.Data)) errorLines.Enqueue(eventArgs.Data);
         };
 
         try
@@ -60,16 +56,11 @@ public sealed class CodexAppServerClient : IUsageProvider
                 "{\"id\":1,\"method\":\"initialize\",\"params\":{\"clientInfo\":{\"name\":\"codex-limits-windows\",\"title\":\"Codex Limits Windows\",\"version\":\"0.2.0\"},\"capabilities\":{\"experimentalApi\":true}}}");
             await process.StandardInput.FlushAsync();
 
-            JsonElement? rateLimits = null;
             var fetchedAt = DateTimeOffset.UtcNow;
-
             while (!timeout.Token.IsCancellationRequested)
             {
                 var line = await process.StandardOutput.ReadLineAsync(timeout.Token);
-                if (line is null)
-                {
-                    break;
-                }
+                if (line is null) break;
 
                 using var document = JsonDocument.Parse(line);
                 var root = document.RootElement;
@@ -80,13 +71,7 @@ public sealed class CodexAppServerClient : IUsageProvider
 
                 if (root.TryGetProperty("error", out var error))
                 {
-                    var message = error.TryGetProperty("message", out var messageElement)
-                        ? messageElement.GetString()
-                        : null;
-                    throw new InvalidOperationException(
-                        string.IsNullOrWhiteSpace(message)
-                            ? "Codex app-server a renvoyé une erreur."
-                            : $"Codex app-server : {message}");
+                    throw new InvalidOperationException($"Codex app-server a renvoyé une erreur : {error.GetRawText()}");
                 }
 
                 if (id == 1)
@@ -97,29 +82,16 @@ public sealed class CodexAppServerClient : IUsageProvider
                 }
                 else if (id == 2)
                 {
-                    rateLimits = root.Clone();
-                }
-
-                if (rateLimits.HasValue)
-                {
                     using var emptyUsage = JsonDocument.Parse("{\"result\":{}}");
-                    return Decode(rateLimits.Value, emptyUsage.RootElement, fetchedAt);
+                    return Decode(root, emptyUsage.RootElement, fetchedAt);
                 }
             }
 
-            var details = standardError.ToString().Trim();
-            throw new TimeoutException(
-                string.IsNullOrWhiteSpace(details)
-                    ? "Codex n’a pas renvoyé les données de quota à temps."
-                    : $"Codex n’a pas renvoyé les données de quota à temps. Détail : {details}");
+            throw new TimeoutException(BuildTimeoutMessage(errorLines));
         }
         catch (OperationCanceledException) when (timeout.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
         {
-            var details = standardError.ToString().Trim();
-            throw new TimeoutException(
-                string.IsNullOrWhiteSpace(details)
-                    ? "Codex n’a pas renvoyé les données de quota à temps."
-                    : $"Codex n’a pas renvoyé les données de quota à temps. Détail : {details}");
+            throw new TimeoutException(BuildTimeoutMessage(errorLines));
         }
         finally
         {
@@ -135,6 +107,15 @@ public sealed class CodexAppServerClient : IUsageProvider
                 // Process was never started or already exited.
             }
         }
+    }
+
+    private static string BuildTimeoutMessage(
+        System.Collections.Concurrent.ConcurrentQueue<string> errorLines)
+    {
+        var details = string.Join(" | ", errorLines.Take(3));
+        return string.IsNullOrWhiteSpace(details)
+            ? "Codex n’a pas renvoyé les données de quota à temps."
+            : $"Codex n’a pas renvoyé les données de quota à temps. Détail : {details}";
     }
 
     public static UsageSnapshot Decode(JsonElement rateResponse, JsonElement usageResponse, DateTimeOffset fetchedAt)

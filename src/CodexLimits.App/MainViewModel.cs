@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using CodexLimits.Core;
 using Brush = System.Windows.Media.Brush;
@@ -11,21 +12,20 @@ public sealed class MainViewModel : INotifyPropertyChanged
 {
     private readonly IUsageProvider _provider;
     private readonly UsageHistoryStore _history = new();
-    private readonly AppSettingsStore _settingsStore = new();
     private readonly bool _demo;
     private readonly List<UsageSample> _samples = new();
+    private AppSettings _settings;
     private PaceStatus? _previousStatus;
     private UsageSnapshot? _snapshot;
     private Forecast? _forecast;
     private bool _isRefreshing;
     private string? _errorMessage;
-    private double _safetyBuffer = 3;
     private ChartState? _chart;
-    private WorkScheduleSettings _settings = WorkScheduleSettings.Default;
 
-    public MainViewModel(bool demo)
+    public MainViewModel(bool demo, AppSettings settings)
     {
         _demo = demo;
+        _settings = settings.Normalize();
         _provider = demo ? new DemoUsageProvider() : new CodexAppServerClient();
     }
 
@@ -33,8 +33,10 @@ public sealed class MainViewModel : INotifyPropertyChanged
 
     public ObservableCollection<OtherLimitViewModel> OtherLimits { get; } = new();
 
-    public WorkScheduleSettings Settings => _settings;
-    public int RefreshIntervalMinutes => _settings.RefreshMinutes;
+    public AppSettings Settings => _settings;
+
+    private string L(string french, string english) => UiText.Get(_settings.Language, french, english);
+    private CultureInfo Culture => UiText.Culture(_settings.Language);
 
     public ChartState? Chart
     {
@@ -55,73 +57,138 @@ public sealed class MainViewModel : INotifyPropertyChanged
     }
 
     public string RefreshButtonText => IsRefreshing ? "…" : "↻";
-    public string RemainingText => _snapshot is null ? "—" : $"{_snapshot.MainLimit.Window.RemainingPercent:0}";
-    public double RemainingProgress => _snapshot?.MainLimit.Window.RemainingPercent ?? 0;
-    public string UsedText => _snapshot is null ? "—" : $"{100 - _snapshot.MainLimit.Window.RemainingPercent:0} % utilisés";
-    public string PlanText => _demo ? "Mode démo · stockage local" : "Codex CLI · historique local uniquement";
+    public double RemainingValue => _snapshot?.MainLimit.Window.RemainingPercent ?? 0;
+    public double RemainingProgress => RemainingValue;
+    public string RemainingText => _snapshot is null ? "—" : $"{RemainingValue:0}";
+    public string UsedValueText => _snapshot is null ? "—" : $"{100 - RemainingValue:0}";
+    public string UsedText => _snapshot is null
+        ? L("En attente des données", "Waiting for data")
+        : $"{100 - RemainingValue:0} {UsedLabel}";
+
+    public string RemainingLabel => L("% restant", "% remaining");
+    public string UsedLabel => L("% utilisés", "% used");
+    public string SettingsTooltip => L("Paramètres", "Settings");
+    public string RefreshTooltip => L("Actualiser maintenant", "Refresh now");
+    public string ConsumptionTitle => L("Consommation", "Usage");
+    public string LegendTarget => L("• Cible", "• Target");
+    public string LegendActual => L("• Réel", "• Actual");
+    public string LegendProjection => L("• Projection", "• Projection");
+    public string LegendHistorical => L("• Historique", "• Historical");
+    public string ModifyLabel => L("Modifier", "Edit");
+    public string ResetLabel => L("Reset", "Reset");
+    public string ExhaustionLabel => L("Épuisement estimé", "Estimated exhaustion");
+    public string SuggestedPaceLabel => L("Rythme conseillé", "Recommended pace");
+    public string ObservedPaceLabel => L("Rythme observé", "Observed pace");
+    public string HideLabel => L("Masquer", "Hide");
+
+    public string PlanText => _demo
+        ? L("Mode démo", "Demo mode")
+        : L("Codex CLI • historique local uniquement", "Codex CLI • local history only");
+
     public string ErrorText => _errorMessage ?? string.Empty;
     public bool HasError => !string.IsNullOrWhiteSpace(_errorMessage);
-    public string UpdatedText => _snapshot is null ? "Pas encore actualisé" : $"Actualisé {RelativeTime(_snapshot.FetchedAt)}";
-    public string ResetText => _snapshot is null ? "—" : _snapshot.MainLimit.Window.ResetsAt.ToLocalTime().ToString("dd MMM yyyy 'à' HH:mm");
-    public string ScheduleText => _settings.Summary;
-    public string ActiveWindowText => $"{_settings.DaysSummary} · {_settings.StartTime:hh\\:mm}–{_settings.EndTime:hh\\:mm}";
 
-    public bool IsScheduleActive => _settings.IsActive(DateTimeOffset.Now);
+    public string UpdatedText => _snapshot is null
+        ? L("Pas encore actualisé", "Not updated yet")
+        : L($"Actualisé {RelativeTime(_snapshot.FetchedAt)}", $"Updated {RelativeTime(_snapshot.FetchedAt)}");
 
-    public string ScheduleStateText
+    public string ResetText => _snapshot is null
+        ? "—"
+        : FormatDate(_snapshot.MainLimit.Window.ResetsAt.ToLocalTime());
+
+    public bool IsWithinSchedule => ScheduleMath.IsActive(DateTimeOffset.Now, _settings);
+    public bool CanAutoRefreshNow => !_settings.PauseRefreshOutsideSchedule || IsWithinSchedule;
+    public int RefreshIntervalMinutes => _settings.RefreshIntervalMinutes;
+    public string ScheduleStateText => IsWithinSchedule
+        ? L("Créneau actif", "Active schedule")
+        : L("En pause", "Paused");
+    public Brush ScheduleStateBrush => IsWithinSchedule ? Brushes.MediumSeaGreen : Brushes.Goldenrod;
+    public string ScheduleSummaryText =>
+        $"{UiText.ShortDay(_settings.Language, _settings.StartDay)} {_settings.StartTime:hh\\:mm} → {UiText.ShortDay(_settings.Language, _settings.EndDay)} {_settings.EndTime:hh\\:mm}";
+
+    public string AutoRefreshText
     {
         get
         {
-            var now = DateTimeOffset.Now;
-            if (_settings.IsActive(now))
+            if (_settings.PauseRefreshOutsideSchedule && !IsWithinSchedule)
             {
-                return $"Actif maintenant · mise à jour automatique toutes les {_settings.RefreshMinutes} min";
+                var next = ScheduleMath.GetNextStart(DateTimeOffset.Now, _settings).ToLocalTime();
+                return L($"Auto-pause • reprise {FormatShortDate(next)}", $"Auto-pause • resumes {FormatShortDate(next)}");
             }
 
-            var next = _settings.NextActiveStart(now).ToLocalTime();
-            var prefix = next.Date == now.Date ? "Reprise aujourd’hui" : "Reprise";
-            return $"En pause · {prefix} {next:ddd dd MMM 'à' HH:mm}";
+            return L(
+                $"Actualisation automatique toutes les {_settings.RefreshIntervalMinutes} min",
+                $"Automatic refresh every {_settings.RefreshIntervalMinutes} min");
         }
     }
 
-    public Brush ScheduleStateBrush => IsScheduleActive ? Brushes.MediumSeaGreen : Brushes.DarkOrange;
+    public string SchedulePauseTitle
+    {
+        get
+        {
+            if (IsWithinSchedule)
+            {
+                return L("Suivi actif • créneau en cours", "Active tracking • schedule in progress");
+            }
+
+            var next = ScheduleMath.GetNextStart(DateTimeOffset.Now, _settings).ToLocalTime();
+            return L($"En pause • Reprise {FormatDate(next)}", $"Paused • Resumes {FormatDate(next)}");
+        }
+    }
+
+    public string ScheduleDetailText =>
+        $"{CompactDayRange(_settings.StartDay, _settings.EndDay)} · {_settings.StartTime:hh\\:mm}–{_settings.EndTime:hh\\:mm} · " +
+        L($"actualisation {_settings.RefreshIntervalMinutes} min", $"refresh {_settings.RefreshIntervalMinutes} min");
 
     public string SuggestedPaceText
     {
         get
         {
-            if (_snapshot is null || _forecast is null || _settings.DailyActiveHours <= 0) return "—";
-            var activeHoursLeft = _settings.ActiveHoursBetween(_snapshot.FetchedAt, _snapshot.MainLimit.Window.ResetsAt);
-            return activeHoursLeft <= _settings.DailyActiveHours
-                ? $"Jusqu’à {_forecast.RecommendedPercentPerDay / _settings.DailyActiveHours:0.0} % par heure active"
-                : $"Jusqu’à {_forecast.RecommendedPercentPerDay:0.0} % par jour travaillé";
+            if (_snapshot is null || _forecast is null) return "—";
+            if (_forecast.ActiveHoursLeft <= 0)
+            {
+                return L("Créneau terminé • aucune consommation planifiée", "Schedule finished • no planned usage");
+            }
+
+            var dailyHours = ScheduleMath.GetNominalDailyHours(_settings);
+            return _forecast.ActiveHoursLeft <= dailyHours
+                ? L(
+                    $"Jusqu’à {_forecast.RecommendedPercentPerDay / dailyHours:0.0} % par heure active",
+                    $"Up to {_forecast.RecommendedPercentPerDay / dailyHours:0.0}% per active hour")
+                : L(
+                    $"Jusqu’à {_forecast.RecommendedPercentPerDay:0.0} % par jour travaillé",
+                    $"Up to {_forecast.RecommendedPercentPerDay:0.0}% per workday");
         }
     }
 
-    public string ExhaustionText
+    public string EstimatedExhaustionText
     {
         get
         {
-            var exhaustion = EstimateExhaustionAt();
-            if (exhaustion is null) return "Non estimé";
-            if (_snapshot is not null && exhaustion >= _snapshot.MainLimit.Window.ResetsAt)
-            {
-                return "Après le prochain reset";
-            }
-            return exhaustion.Value.ToLocalTime().ToString("ddd dd MMM 'à' HH:mm");
+            if (_snapshot is null || _forecast is null) return "—";
+            return _forecast.EstimatedExhaustionAt is { } exhaustion
+                ? FormatDate(exhaustion.ToLocalTime())
+                : L("Pas d’épuisement prévu avant le reset", "No exhaustion expected before reset");
         }
     }
 
-    public string CurrentRateText => _forecast is null
-        ? "—"
-        : $"{_forecast.CurrentPercentPerDay:0.0} % / jour travaillé";
+    public string CurrentPaceText
+    {
+        get
+        {
+            if (_snapshot is null || _forecast is null || _forecast.CurrentPercentPerDay <= 0) return "—";
+            return L(
+                $"{_forecast.CurrentPercentPerDay:0.0} % / jour travaillé",
+                $"{_forecast.CurrentPercentPerDay:0.0}% / workday");
+        }
+    }
 
     public string StatusTitle => _forecast?.Status switch
     {
-        PaceStatus.SlowDown => "Ralentis",
-        PaceStatus.OnTrack => "Dans le rythme",
-        PaceStatus.RoomToUseMore => "Marge disponible",
-        _ => "Apprentissage"
+        PaceStatus.SlowDown => L("Ralentis", "Slow down"),
+        PaceStatus.OnTrack => L("Dans le rythme", "On track"),
+        PaceStatus.RoomToUseMore => L("Tu peux utiliser davantage", "Room to use more"),
+        _ => L("Apprentissage", "Learning")
     };
 
     public Brush StatusBrush => _forecast?.Status switch
@@ -136,66 +203,33 @@ public sealed class MainViewModel : INotifyPropertyChanged
     {
         get
         {
-            if (_snapshot is null || _forecast is null) return "Collecte des premières données…";
+            if (_snapshot is null || _forecast is null)
+            {
+                return L("Collecte des premières données…", "Collecting initial data…");
+            }
+
+            var window = _snapshot.MainLimit.Window;
             return _forecast.Status switch
             {
-                PaceStatus.SlowDown => BuildSlowDownMessage(),
-                PaceStatus.OnTrack => $"À ce rythme, il resterait environ {_forecast.ExpectedRemainingAtReset:0} % au reset, hors périodes inactives.",
-                PaceStatus.RoomToUseMore => $"Tu peux utiliser environ {Math.Max(_forecast.ExpectedRemainingAtReset - SafetyBuffer, 0):0} % de plus pendant les heures actives.",
-                _ => "Collecte des premières données…"
+                PaceStatus.SlowDown => BuildSlowDownMessage(window, _forecast),
+                PaceStatus.OnTrack => L(
+                    $"À ce rythme, il resterait environ {_forecast.ExpectedRemainingAtReset:0} % au reset.",
+                    $"At this pace, about {_forecast.ExpectedRemainingAtReset:0}% would remain at reset."),
+                PaceStatus.RoomToUseMore => L(
+                    $"Tu peux utiliser environ {Math.Max(_forecast.ExpectedRemainingAtReset - _settings.SafetyBuffer, 0):0} % de plus avant le reset.",
+                    $"You can use about {Math.Max(_forecast.ExpectedRemainingAtReset - _settings.SafetyBuffer, 0):0}% more before reset."),
+                _ => L("Collecte des premières données…", "Collecting initial data…")
             };
-        }
-    }
-
-    public double SafetyBuffer
-    {
-        get => _safetyBuffer;
-        set
-        {
-            var clamped = Math.Clamp(value, 0, 30);
-            if (SetField(ref _safetyBuffer, clamped))
-            {
-                Recalculate();
-            }
         }
     }
 
     public async Task StartAsync(CancellationToken cancellationToken = default)
     {
-        _settings = await _settingsStore.LoadAsync(cancellationToken);
-        NotifyScheduleProperties();
-
         if (!_demo)
         {
             _samples.AddRange(await _history.LoadAsync(cancellationToken: cancellationToken));
         }
-
         await RefreshAsync(cancellationToken);
-    }
-
-    public async Task ApplySettingsAsync(
-        WorkScheduleSettings settings,
-        CancellationToken cancellationToken = default)
-    {
-        if (!settings.IsValid)
-        {
-            throw new ArgumentException("Les jours ou horaires sélectionnés sont invalides.", nameof(settings));
-        }
-
-        await _settingsStore.SaveAsync(settings, cancellationToken);
-        _settings = settings;
-        Recalculate();
-        NotifyScheduleProperties();
-    }
-
-    public bool IsAutomaticRefreshAllowed(DateTimeOffset now) => _settings.IsActive(now);
-
-    public void UpdateClock()
-    {
-        OnPropertyChanged(nameof(IsScheduleActive));
-        OnPropertyChanged(nameof(ScheduleStateText));
-        OnPropertyChanged(nameof(ScheduleStateBrush));
-        OnPropertyChanged(nameof(UpdatedText));
     }
 
     public async Task RefreshAsync(CancellationToken cancellationToken = default)
@@ -234,7 +268,6 @@ public sealed class MainViewModel : INotifyPropertyChanged
             Recalculate();
             UpdateOtherLimits();
             NotifySnapshotProperties();
-            NotifyScheduleProperties();
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
@@ -247,6 +280,30 @@ public sealed class MainViewModel : INotifyPropertyChanged
         }
     }
 
+    public void ApplySettings(AppSettings settings)
+    {
+        var previousLanguage = _settings.Language;
+        _settings = settings.Normalize();
+        _previousStatus = null;
+        Recalculate();
+        UpdateOtherLimits();
+        NotifyScheduleProperties();
+        NotifySnapshotProperties();
+        NotifyForecastProperties();
+
+        if (!string.Equals(previousLanguage, _settings.Language, StringComparison.OrdinalIgnoreCase))
+        {
+            NotifyLocalizedProperties();
+        }
+    }
+
+    public void UpdateClock()
+    {
+        OnPropertyChanged(nameof(UpdatedText));
+        NotifyScheduleProperties();
+        NotifyForecastProperties();
+    }
+
     private void Recalculate()
     {
         if (_snapshot is null) return;
@@ -254,12 +311,17 @@ public sealed class MainViewModel : INotifyPropertyChanged
             _snapshot.MainLimit.Window,
             _samples,
             _snapshot.TokenHistory,
-            SafetyBuffer,
-            _settings,
+            _settings.SafetyBuffer,
             _snapshot.FetchedAt,
-            _previousStatus);
+            _previousStatus,
+            _settings);
         _previousStatus = _forecast.Status;
-        Chart = ChartSeriesBuilder.Build(_snapshot, _samples, _forecast, SafetyBuffer, _settings);
+        Chart = ChartSeriesBuilder.Build(
+            _snapshot,
+            _samples,
+            _forecast,
+            _settings.SafetyBuffer,
+            _settings);
         NotifyForecastProperties();
     }
 
@@ -267,69 +329,83 @@ public sealed class MainViewModel : INotifyPropertyChanged
     {
         OtherLimits.Clear();
         if (_snapshot is null) return;
+
         foreach (var limit in _snapshot.OtherLimits)
         {
             OtherLimits.Add(new OtherLimitViewModel(
-                limit.Name,
+                TranslateLimitName(limit.Name),
                 $"{limit.Window.RemainingPercent:0} %",
-                limit.Window.ResetsAt.ToLocalTime().ToString("dd MMM à HH:mm")));
+                FormatCompactDate(limit.Window.ResetsAt.ToLocalTime())));
         }
     }
 
-    private DateTimeOffset? EstimateExhaustionAt()
+    private string TranslateLimitName(string name)
     {
-        if (_snapshot is null || _forecast is null ||
-            _forecast.CurrentPercentPerDay <= 0 || _settings.DailyActiveHours <= 0)
-        {
-            return null;
-        }
-
-        var percentPerActiveHour = _forecast.CurrentPercentPerDay / _settings.DailyActiveHours;
-        if (percentPerActiveHour <= 0)
-        {
-            return null;
-        }
-
-        var activeHoursToEmpty = _snapshot.MainLimit.Window.RemainingPercent / percentPerActiveHour;
-        return _settings.AddActiveHours(_snapshot.FetchedAt, activeHoursToEmpty);
+        if (!UiText.IsEnglish(_settings.Language)) return name;
+        if (name.Equals("Fenêtre hebdomadaire", StringComparison.OrdinalIgnoreCase)) return "Weekly window";
+        if (name.StartsWith("Fenêtre de ", StringComparison.OrdinalIgnoreCase)) return name.Replace("Fenêtre de ", "Window of ", StringComparison.OrdinalIgnoreCase);
+        if (name.Equals("Fenêtre supplémentaire", StringComparison.OrdinalIgnoreCase)) return "Additional window";
+        return name;
     }
 
-    private string BuildSlowDownMessage()
+    private string BuildSlowDownMessage(UsageWindow window, Forecast forecast)
     {
-        var exhaustion = EstimateExhaustionAt();
-        if (_snapshot is null || exhaustion is null)
+        if (forecast.EstimatedExhaustionAt is not { } exhaustion)
         {
-            return "Ton rythme actuel est trop proche de la limite.";
+            return L("Ton rythme actuel est trop proche de la limite.", "Your current pace is too close to the limit.");
         }
 
-        if (exhaustion >= _snapshot.MainLimit.Window.ResetsAt)
+        var planningEnd = ScheduleMath.GetPlanningEnd(DateTimeOffset.Now, window.ResetsAt, _settings);
+        if (planningEnd is null || exhaustion >= planningEnd)
         {
-            return "Ton rythme actuel est trop proche de la réserve choisie.";
+            return L("Ton rythme actuel est trop proche de la limite.", "Your current pace is too close to the limit.");
         }
 
-        var activeHoursEarly = _settings.ActiveHoursBetween(exhaustion.Value, _snapshot.MainLimit.Window.ResetsAt);
-        if (activeHoursEarly >= _settings.DailyActiveHours)
-        {
-            var workingDays = Math.Max((int)Math.Round(activeHoursEarly / _settings.DailyActiveHours), 1);
-            return $"À ce rythme, le quota pourrait être épuisé {workingDays} jour(s) travaillé(s) trop tôt.";
-        }
-
-        return $"À ce rythme, le quota pourrait être épuisé {Math.Max((int)Math.Round(activeHoursEarly), 1)} heure(s) active(s) trop tôt.";
+        var activeHoursEarly = ScheduleMath.GetActiveHours(exhaustion, planningEnd.Value, _settings);
+        var dailyHours = ScheduleMath.GetNominalDailyHours(_settings);
+        return activeHoursEarly >= dailyHours
+            ? L(
+                $"À ce rythme, le quota pourrait être épuisé {Math.Max((int)Math.Round(activeHoursEarly / dailyHours), 1)} jour(s) travaillé(s) trop tôt.",
+                $"At this pace, the quota could run out {Math.Max((int)Math.Round(activeHoursEarly / dailyHours), 1)} workday(s) too early.")
+            : L(
+                $"À ce rythme, le quota pourrait être épuisé {Math.Max((int)Math.Round(activeHoursEarly), 1)} heure(s) active(s) trop tôt.",
+                $"At this pace, the quota could run out {Math.Max((int)Math.Round(activeHoursEarly), 1)} active hour(s) too early.");
     }
 
-    private static string RelativeTime(DateTimeOffset timestamp)
+    private string RelativeTime(DateTimeOffset timestamp)
     {
         var elapsed = DateTimeOffset.Now - timestamp.ToLocalTime();
-        if (elapsed.TotalMinutes < 1) return "à l’instant";
-        if (elapsed.TotalHours < 1) return $"il y a {(int)elapsed.TotalMinutes} min";
-        if (elapsed.TotalDays < 1) return $"il y a {(int)elapsed.TotalHours} h";
-        return $"il y a {(int)elapsed.TotalDays} j";
+        if (elapsed.TotalMinutes < 1) return L("à l’instant", "just now");
+        if (elapsed.TotalHours < 1) return L($"il y a {(int)elapsed.TotalMinutes} min", $"{(int)elapsed.TotalMinutes} min ago");
+        if (elapsed.TotalDays < 1) return L($"il y a {(int)elapsed.TotalHours} h", $"{(int)elapsed.TotalHours} h ago");
+        return L($"il y a {(int)elapsed.TotalDays} j", $"{(int)elapsed.TotalDays} d ago");
     }
+
+    private string CompactDayRange(DayOfWeek start, DayOfWeek end)
+    {
+        var startLabel = UiText.ShortDay(_settings.Language, start);
+        var endLabel = UiText.ShortDay(_settings.Language, end);
+        return start == end ? startLabel : $"{startLabel}–{endLabel.ToLowerInvariant()}";
+    }
+
+    private string FormatDate(DateTimeOffset value) => UiText.IsEnglish(_settings.Language)
+        ? value.ToString("ddd, MMM dd 'at' HH:mm", Culture)
+        : value.ToString("ddd dd MMM 'à' HH:mm", Culture);
+
+    private string FormatShortDate(DateTimeOffset value) => UiText.IsEnglish(_settings.Language)
+        ? value.ToString("ddd HH:mm", Culture)
+        : value.ToString("ddd HH:mm", Culture);
+
+    private string FormatCompactDate(DateTimeOffset value) => UiText.IsEnglish(_settings.Language)
+        ? value.ToString("MMM dd 'at' HH:mm", Culture)
+        : value.ToString("dd MMM 'à' HH:mm", Culture);
 
     private void NotifySnapshotProperties()
     {
-        OnPropertyChanged(nameof(RemainingText));
+        OnPropertyChanged(nameof(RemainingValue));
         OnPropertyChanged(nameof(RemainingProgress));
+        OnPropertyChanged(nameof(RemainingText));
+        OnPropertyChanged(nameof(UsedValueText));
         OnPropertyChanged(nameof(UsedText));
         OnPropertyChanged(nameof(UpdatedText));
         OnPropertyChanged(nameof(ResetText));
@@ -342,21 +418,46 @@ public sealed class MainViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(StatusMessage));
         OnPropertyChanged(nameof(StatusBrush));
         OnPropertyChanged(nameof(SuggestedPaceText));
-        OnPropertyChanged(nameof(ExhaustionText));
-        OnPropertyChanged(nameof(CurrentRateText));
+        OnPropertyChanged(nameof(EstimatedExhaustionText));
+        OnPropertyChanged(nameof(CurrentPaceText));
     }
 
     private void NotifyScheduleProperties()
     {
-        OnPropertyChanged(nameof(Settings));
+        OnPropertyChanged(nameof(IsWithinSchedule));
+        OnPropertyChanged(nameof(CanAutoRefreshNow));
         OnPropertyChanged(nameof(RefreshIntervalMinutes));
-        OnPropertyChanged(nameof(ScheduleText));
-        OnPropertyChanged(nameof(ActiveWindowText));
-        OnPropertyChanged(nameof(IsScheduleActive));
         OnPropertyChanged(nameof(ScheduleStateText));
         OnPropertyChanged(nameof(ScheduleStateBrush));
-        OnPropertyChanged(nameof(SuggestedPaceText));
-        OnPropertyChanged(nameof(ExhaustionText));
+        OnPropertyChanged(nameof(ScheduleSummaryText));
+        OnPropertyChanged(nameof(AutoRefreshText));
+        OnPropertyChanged(nameof(SchedulePauseTitle));
+        OnPropertyChanged(nameof(ScheduleDetailText));
+    }
+
+    private void NotifyLocalizedProperties()
+    {
+        OnPropertyChanged(nameof(RemainingLabel));
+        OnPropertyChanged(nameof(UsedLabel));
+        OnPropertyChanged(nameof(SettingsTooltip));
+        OnPropertyChanged(nameof(RefreshTooltip));
+        OnPropertyChanged(nameof(ConsumptionTitle));
+        OnPropertyChanged(nameof(LegendTarget));
+        OnPropertyChanged(nameof(LegendActual));
+        OnPropertyChanged(nameof(LegendProjection));
+        OnPropertyChanged(nameof(LegendHistorical));
+        OnPropertyChanged(nameof(ModifyLabel));
+        OnPropertyChanged(nameof(ResetLabel));
+        OnPropertyChanged(nameof(ExhaustionLabel));
+        OnPropertyChanged(nameof(SuggestedPaceLabel));
+        OnPropertyChanged(nameof(ObservedPaceLabel));
+        OnPropertyChanged(nameof(HideLabel));
+        OnPropertyChanged(nameof(UsedText));
+        OnPropertyChanged(nameof(PlanText));
+        OnPropertyChanged(nameof(UpdatedText));
+        OnPropertyChanged(nameof(ResetText));
+        NotifyScheduleProperties();
+        NotifyForecastProperties();
     }
 
     private void NotifyErrorProperties()

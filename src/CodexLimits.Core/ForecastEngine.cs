@@ -1,8 +1,8 @@
 namespace CodexLimits.Core;
 
 /// <summary>
-/// Forecasting model ported from the MIT-licensed thrr87/codex-limits project.
-/// Inactive schedule periods are excluded from pace calculations.
+/// Forecasting model adapted from the MIT-licensed thrr87/codex-limits project.
+/// Rates are calculated only across the configured active weekly schedule.
 /// </summary>
 public static class ForecastEngine
 {
@@ -11,30 +11,32 @@ public static class ForecastEngine
         IReadOnlyList<UsageSample> samples,
         IReadOnlyList<TokenDay> tokenHistory,
         double safetyBuffer,
-        WorkScheduleSettings schedule,
         DateTimeOffset now,
-        PaceStatus? previousStatus)
+        PaceStatus? previousStatus,
+        AppSettings settings)
     {
-        var workingDaysLeft = Math.Max(schedule.ActiveEquivalentDaysBetween(now, window.ResetsAt), 0);
+        var normalized = settings.Normalize();
+        var activeHoursLeft = ScheduleMath.GetActiveHours(now, window.ResetsAt, normalized);
+        var activeDaysLeft = ScheduleMath.GetActiveWorkDays(now, window.ResetsAt, normalized);
         var currentSamples = samples
             .Where(sample => sample.ResetsAt == window.ResetsAt && sample.ObservedAt <= now)
             .OrderBy(sample => sample.ObservedAt)
             .ToArray();
 
-        var minimumWorkingDayFraction = 1d / Math.Max(schedule.DailyActiveHours, 1);
-        var elapsedWorkingDays = Math.Max(
-            schedule.ActiveEquivalentDaysBetween(window.StartsAt, now),
-            minimumWorkingDayFraction);
-        var windowRate = Math.Max((100 - window.RemainingPercent) / elapsedWorkingDays, 0);
+        var elapsedActiveDays = ScheduleMath.GetActiveWorkDays(window.StartsAt, now, normalized);
+        var windowRate = elapsedActiveDays > 1d / 96d
+            ? Math.Max((100 - window.RemainingPercent) / elapsedActiveDays, 0)
+            : 0;
 
         double recentRate;
         if (currentSamples.Length > 1 && currentSamples[^1].ObservedAt > currentSamples[0].ObservedAt)
         {
-            var workingDays = schedule.ActiveEquivalentDaysBetween(
+            var activeDays = ScheduleMath.GetActiveHours(
                 currentSamples[0].ObservedAt,
-                currentSamples[^1].ObservedAt);
-            recentRate = workingDays > 0.000001
-                ? Math.Max((currentSamples[0].RemainingPercent - currentSamples[^1].RemainingPercent) / workingDays, 0)
+                currentSamples[^1].ObservedAt,
+                normalized) / 24d;
+            recentRate = activeDays > 1d / 96d
+                ? Math.Max((currentSamples[0].RemainingPercent - currentSamples[^1].RemainingPercent) / activeDays, 0)
                 : windowRate;
         }
         else
@@ -57,17 +59,13 @@ public static class ForecastEngine
                     return (double?)null;
                 }
 
-                var workingDays = schedule.ActiveEquivalentDaysBetween(
+                var activeDays = ScheduleMath.GetActiveWorkDays(
                     ordered[0].ObservedAt,
-                    ordered[^1].ObservedAt);
-                if (workingDays <= 0.000001)
-                {
-                    return null;
-                }
-
-                return Math.Max(
-                    (ordered[0].RemainingPercent - ordered[^1].RemainingPercent) / workingDays,
-                    0);
+                    ordered[^1].ObservedAt,
+                    normalized);
+                return activeDays > 1d / 96d
+                    ? Math.Max((ordered[0].RemainingPercent - ordered[^1].RemainingPercent) / activeDays, 0)
+                    : null;
             })
             .Where(rate => rate.HasValue)
             .Select(rate => rate!.Value)
@@ -85,11 +83,11 @@ public static class ForecastEngine
 
         var expectedRate = 0.75 * currentRate + 0.25 * historicalRate;
         var safetyRate = Math.Max(currentRate, historicalRate) * 1.2;
-        var expected = Math.Max(window.RemainingPercent - expectedRate * workingDaysLeft, 0);
-        var safety = Math.Max(window.RemainingPercent - safetyRate * workingDaysLeft, 0);
-        var historical = Math.Max(window.RemainingPercent - historicalRate * workingDaysLeft, 0);
-        var recommended = workingDaysLeft > 0
-            ? Math.Max(window.RemainingPercent - safetyBuffer, 0) / workingDaysLeft
+        var expected = Math.Max(window.RemainingPercent - expectedRate * activeDaysLeft, 0);
+        var safety = Math.Max(window.RemainingPercent - safetyRate * activeDaysLeft, 0);
+        var historical = Math.Max(window.RemainingPercent - historicalRate * activeDaysLeft, 0);
+        var recommended = activeDaysLeft > 0
+            ? Math.Max(window.RemainingPercent - safetyBuffer, 0) / activeDaysLeft
             : 0;
 
         PaceStatus status;
@@ -106,6 +104,14 @@ public static class ForecastEngine
             status = PaceStatus.OnTrack;
         }
 
+        DateTimeOffset? exhaustionAt = null;
+        if (expectedRate > 0)
+        {
+            var hoursPerWorkDay = ScheduleMath.GetNominalDailyHours(normalized);
+            var hoursToEmpty = window.RemainingPercent / expectedRate * hoursPerWorkDay;
+            exhaustionAt = ScheduleMath.AddActiveHours(now, hoursToEmpty, window.ResetsAt, normalized);
+        }
+
         return new Forecast(
             status,
             expected,
@@ -114,7 +120,9 @@ public static class ForecastEngine
             recommended,
             expectedRate,
             historicalRate,
-            safetyRate);
+            safetyRate,
+            activeHoursLeft,
+            exhaustionAt);
     }
 
     private static double? TokenBootstrapRate(
@@ -132,7 +140,7 @@ public static class ForecastEngine
             .GroupBy(day => DayNumber(day.Date))
             .ToDictionary(group => group.Key, group => group.Sum(item => item.Tokens));
 
-        if (buckets.Count == 0)
+        if (buckets.Count == 0 || windowRate <= 0)
         {
             return null;
         }

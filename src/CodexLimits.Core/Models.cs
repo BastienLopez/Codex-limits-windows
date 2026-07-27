@@ -43,7 +43,9 @@ public sealed record Forecast(
     double RecommendedPercentPerDay,
     double CurrentPercentPerDay,
     double HistoricalPercentPerDay,
-    double SafetyPercentPerDay);
+    double SafetyPercentPerDay,
+    double ActiveHoursLeft,
+    DateTimeOffset? EstimatedExhaustionAt);
 
 public sealed record ChartPoint(
     DateTimeOffset Time,
@@ -56,4 +58,5 @@ public sealed record ChartState(
     IReadOnlyList<ChartPoint> Target,
     IReadOnlyList<ChartPoint> Actual,
     IReadOnlyList<ChartPoint> CurrentProjection,
-    IReadOnlyList<ChartPoint> HistoricalProjection);
+    IReadOnlyList<ChartPoint> HistoricalProjection,
+    IReadOnlyList<TimeRange> InactivePeriods);

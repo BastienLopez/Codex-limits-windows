@@ -3,194 +3,210 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:CodexLimits.App.Controls"
         Title="Codex Limits Windows"
-        Width="560" Height="790" MinWidth="500" MinHeight="650"
+        Width="591" Height="650"
+        MinWidth="591" MinHeight="650"
+        MaxWidth="591" MaxHeight="650"
+        ResizeMode="NoResize"
         WindowStartupLocation="CenterScreen"
         Background="{StaticResource WindowBackground}"
         Foreground="{StaticResource PrimaryText}"
         FontFamily="Segoe UI"
         Closing="Window_Closing"
         Loaded="Window_Loaded">
-    <Border Margin="10" CornerRadius="18"
-            Background="{StaticResource PanelBackground}"
-            BorderBrush="{StaticResource BorderBrush}" BorderThickness="1">
-        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-            <StackPanel Margin="20">
-                <Grid Margin="0,0,0,16">
+
+    <Window.Resources>
+        <Style x:Key="BorderlessIconButton" TargetType="Button">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Foreground" Value="{StaticResource PrimaryText}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid Background="Transparent">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Opacity" Value="0.72" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter Property="Opacity" Value="0.48" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.35" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="TextOnlyButton" TargetType="Button" BasedOn="{StaticResource BorderlessIconButton}">
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="8">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="70" />
+            <RowDefinition Height="8" />
+            <RowDefinition Height="54" />
+            <RowDefinition Height="8" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="8" />
+            <RowDefinition Height="64" />
+            <RowDefinition Height="8" />
+            <RowDefinition Height="100" />
+            <RowDefinition Height="0" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Border Grid.Row="0" Style="{StaticResource CardStyle}" Padding="13,10">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="10" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="10" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="8" />
+                    <ColumnDefinition Width="30" />
+                    <ColumnDefinition Width="6" />
+                    <ColumnDefinition Width="40" />
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Grid.Column="0" Text="Codex Limits" FontSize="20" FontWeight="Bold" VerticalAlignment="Center" />
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding RemainingText}" FontSize="17" FontWeight="Bold" />
+                    <TextBlock Text="{Binding RemainingLabel}" Margin="4,3,0,0" Foreground="{StaticResource SecondaryText}" FontSize="11" />
+                </StackPanel>
+
+                <Border Grid.Column="2" Width="1" Height="22" Background="#FF26354A" HorizontalAlignment="Center" VerticalAlignment="Center" />
+
+                <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding UsedValueText}" FontSize="17" FontWeight="Bold" />
+                    <TextBlock Text="{Binding UsedLabel}" Margin="4,3,0,0" Foreground="{StaticResource SecondaryText}" FontSize="11" />
+                </StackPanel>
+
+                <Border Grid.Column="4" Width="1" Height="22" Background="#FF26354A" HorizontalAlignment="Center" VerticalAlignment="Center" />
+
+                <TextBlock Grid.Column="5" Text="{Binding UpdatedText}" Foreground="{StaticResource SecondaryText}" FontSize="10" VerticalAlignment="Center" />
+
+                <Button Grid.Column="7" Content="⚙" ToolTip="{Binding SettingsTooltip}"
+                        Style="{StaticResource BorderlessIconButton}" Width="30" Height="30" FontSize="19"
+                        Click="SettingsButton_Click" />
+
+                <Button Grid.Column="9" Content="↻" ToolTip="{Binding RefreshTooltip}"
+                        Style="{StaticResource BorderlessIconButton}" Width="40" Height="40" FontSize="25" FontWeight="Bold"
+                        Click="RefreshButton_Click" />
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="2" Style="{StaticResource CardStyle}" Padding="13,9">
+            <Grid VerticalAlignment="Center">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="9" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="9" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="9" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Grid.Column="0" Text="!" Foreground="{Binding StatusBrush}" FontSize="15" FontWeight="Bold" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="2" Text="{Binding StatusTitle, Mode=OneWay}" Foreground="{Binding StatusBrush}" FontSize="15" FontWeight="Bold" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="4" Text="—" Foreground="{StaticResource SecondaryText}" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="6" Text="{Binding StatusMessage, Mode=OneWay}" FontSize="11" TextWrapping="Wrap" VerticalAlignment="Center" />
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="4" Style="{StaticResource CardStyle}" Padding="13,9">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="24" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <Grid Grid.Row="0">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <StackPanel>
-                        <TextBlock Text="Codex Limits" FontSize="24" FontWeight="SemiBold" />
-                        <TextBlock Text="Quota, rythme et projection locale" Margin="0,3,0,0"
-                                   Foreground="{StaticResource SecondaryText}" FontSize="12" />
-                    </StackPanel>
-                    <Button Grid.Column="1" Content="⚙" ToolTip="Configurer le planning"
-                            Width="40" Height="36" FontSize="16" Padding="0"
-                            Margin="0,0,8,0" Click="SettingsButton_Click" />
-                    <Button Grid.Column="2" Content="{Binding RefreshButtonText}" ToolTip="Actualiser maintenant"
-                            Width="40" Height="36" FontSize="19" Padding="0"
-                            Click="RefreshButton_Click" />
+
+                    <TextBlock Text="{Binding ConsumptionTitle}" FontSize="16" FontWeight="Bold" VerticalAlignment="Center" />
+                    <WrapPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding LegendTarget}" Foreground="#FF34C759" Margin="0,0,9,0" FontSize="10" />
+                        <TextBlock Text="{Binding LegendActual}" Foreground="#FF0A84FF" Margin="0,0,9,0" FontSize="10" />
+                        <TextBlock Text="{Binding LegendProjection}" Foreground="#FFFF675F" Margin="0,0,9,0" FontSize="10" />
+                        <TextBlock Text="{Binding LegendHistorical}" Foreground="#FF919196" FontSize="10" />
+                    </WrapPanel>
                 </Grid>
 
-                <Border Padding="18" CornerRadius="14" Background="#FF17191C"
-                        BorderBrush="#FF303338" BorderThickness="1">
-                    <StackPanel>
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Text="{Binding RemainingText}" FontSize="50" FontWeight="SemiBold" />
-                            <TextBlock Grid.Column="1" Text="% restant" Margin="10,25,0,0"
-                                       Foreground="{StaticResource SecondaryText}" FontWeight="SemiBold" />
-                            <StackPanel Grid.Column="2" HorizontalAlignment="Right" VerticalAlignment="Center">
-                                <TextBlock Text="{Binding UsedText}" HorizontalAlignment="Right" />
-                                <TextBlock Text="{Binding UpdatedText}" HorizontalAlignment="Right"
-                                           Foreground="{StaticResource SecondaryText}" FontSize="11" Margin="0,4,0,0" />
-                            </StackPanel>
-                        </Grid>
-                        <ProgressBar Value="{Binding RemainingProgress, Mode=OneWay}" Maximum="100" Height="8" Margin="0,12,0,0"
-                                     Foreground="#FF0A84FF" Background="#FF292C31" BorderThickness="0" />
+                <local:BurnDownChartControl x:Name="BurnChart" Grid.Row="1" Margin="0,3,0,0" VerticalAlignment="Stretch" />
+            </Grid>
+        </Border>
+
+        <Border Grid.Row="6" Style="{StaticResource CardStyle}" Padding="13,8">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal">
+                        <Ellipse Width="9" Height="9" Fill="{Binding ScheduleStateBrush}" Margin="0,5,8,0" />
+                        <TextBlock Text="{Binding SchedulePauseTitle}" FontSize="13" FontWeight="Bold" />
                     </StackPanel>
-                </Border>
+                    <TextBlock Text="{Binding ScheduleDetailText}" Margin="0,3,0,0" Foreground="{StaticResource SecondaryText}" FontSize="10" />
+                </StackPanel>
 
-                <Border Margin="0,12,0,0" Padding="14" CornerRadius="12"
-                        Background="#FF17191C" BorderBrush="#FF303338" BorderThickness="1">
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="●" Foreground="{Binding ScheduleStateBrush}" FontSize="13"
-                                   VerticalAlignment="Top" Margin="0,1,10,0" />
-                        <StackPanel Grid.Column="1">
-                            <TextBlock Text="{Binding ScheduleStateText}" FontWeight="SemiBold" TextWrapping="Wrap" />
-                            <TextBlock Text="{Binding ScheduleText}" Margin="0,4,0,0"
-                                       Foreground="{StaticResource SecondaryText}" FontSize="11" TextWrapping="Wrap" />
-                        </StackPanel>
-                        <Button Grid.Column="2" Content="Modifier" Margin="12,0,0,0"
-                                VerticalAlignment="Center" Click="SettingsButton_Click" />
-                    </Grid>
-                </Border>
+                <Button Grid.Column="1" Content="{Binding ModifyLabel}" Style="{StaticResource TextOnlyButton}"
+                        Padding="8,4" VerticalAlignment="Center" Click="SettingsButton_Click" />
+            </Grid>
+        </Border>
 
-                <Border Margin="0,12,0,0" Padding="16" CornerRadius="12"
-                        Background="#FF17191C" BorderBrush="#FF303338" BorderThickness="1">
-                    <StackPanel>
-                        <TextBlock Text="{Binding StatusTitle}" Foreground="{Binding StatusBrush}"
-                                   FontSize="18" FontWeight="Bold" />
-                        <TextBlock Text="{Binding StatusMessage}" Foreground="{StaticResource SecondaryText}"
-                                   Margin="0,5,0,0" TextWrapping="Wrap" />
-                    </StackPanel>
-                </Border>
+        <UniformGrid Grid.Row="8" Columns="4">
+            <Border Style="{StaticResource CardStyle}" Margin="0,0,4,0" Padding="9">
+                <StackPanel>
+                    <TextBlock Text="{Binding ResetLabel}" Foreground="{StaticResource SecondaryText}" FontSize="9" />
+                    <TextBlock Text="{Binding ResetText}" Margin="0,5,0,0" FontSize="10" FontWeight="Bold" TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
 
-                <Border Margin="0,12,0,0" Padding="14" CornerRadius="12"
-                        Background="#FF0E0F11" BorderBrush="#FF303338" BorderThickness="1">
-                    <StackPanel>
-                        <Grid Margin="0,0,0,8">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
-                                <ColumnDefinition Width="Auto" />
-                            </Grid.ColumnDefinitions>
-                            <TextBlock Text="Consommation" FontSize="14" FontWeight="SemiBold" />
-                            <StackPanel Grid.Column="1" Orientation="Horizontal">
-                                <TextBlock Text="• Target" Foreground="#FF34C759" Margin="0,0,10,0" FontSize="10" />
-                                <TextBlock Text="• Actual" Foreground="#FF0A84FF" Margin="0,0,10,0" FontSize="10" />
-                                <TextBlock Text="• Current" Foreground="#FFFF453A" Margin="0,0,10,0" FontSize="10" />
-                                <TextBlock Text="• Historical" Foreground="#FF919196" FontSize="10" />
-                            </StackPanel>
-                        </Grid>
-                        <local:BurnDownChartControl x:Name="BurnChart" Height="245" />
-                    </StackPanel>
-                </Border>
+            <Border Style="{StaticResource CardStyle}" Margin="4,0" Padding="9">
+                <StackPanel>
+                    <TextBlock Text="{Binding ExhaustionLabel}" Foreground="{StaticResource SecondaryText}" FontSize="9" TextWrapping="Wrap" />
+                    <TextBlock Text="{Binding EstimatedExhaustionText}" Margin="0,5,0,0" FontSize="10" FontWeight="Bold" TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
 
-                <UniformGrid Columns="2" Margin="0,12,0,0">
-                    <Border Margin="0,0,6,6" Padding="14" CornerRadius="12"
-                            Background="#FF17191C" BorderBrush="#FF303338" BorderThickness="1">
-                        <StackPanel>
-                            <TextBlock Text="Reset" Foreground="{StaticResource SecondaryText}" FontSize="11" />
-                            <TextBlock Text="{Binding ResetText}" FontWeight="SemiBold" Margin="0,5,0,0" TextWrapping="Wrap" />
-                        </StackPanel>
-                    </Border>
-                    <Border Margin="6,0,0,6" Padding="14" CornerRadius="12"
-                            Background="#FF17191C" BorderBrush="#FF303338" BorderThickness="1">
-                        <StackPanel>
-                            <TextBlock Text="Épuisement estimé" Foreground="{StaticResource SecondaryText}" FontSize="11" />
-                            <TextBlock Text="{Binding ExhaustionText}" FontWeight="SemiBold" Margin="0,5,0,0" TextWrapping="Wrap" />
-                        </StackPanel>
-                    </Border>
-                    <Border Margin="0,6,6,0" Padding="14" CornerRadius="12"
-                            Background="#FF17191C" BorderBrush="#FF303338" BorderThickness="1">
-                        <StackPanel>
-                            <TextBlock Text="Rythme conseillé" Foreground="{StaticResource SecondaryText}" FontSize="11" />
-                            <TextBlock Text="{Binding SuggestedPaceText}" FontWeight="SemiBold" Margin="0,5,0,0" TextWrapping="Wrap" />
-                        </StackPanel>
-                    </Border>
-                    <Border Margin="6,6,0,0" Padding="14" CornerRadius="12"
-                            Background="#FF17191C" BorderBrush="#FF303338" BorderThickness="1">
-                        <StackPanel>
-                            <TextBlock Text="Rythme observé" Foreground="{StaticResource SecondaryText}" FontSize="11" />
-                            <TextBlock Text="{Binding CurrentRateText}" FontWeight="SemiBold" Margin="0,5,0,0" TextWrapping="Wrap" />
-                        </StackPanel>
-                    </Border>
-                </UniformGrid>
+            <Border Style="{StaticResource CardStyle}" Margin="4,0" Padding="9">
+                <StackPanel>
+                    <TextBlock Text="{Binding SuggestedPaceLabel}" Foreground="{StaticResource SecondaryText}" FontSize="9" TextWrapping="Wrap" />
+                    <TextBlock Text="{Binding SuggestedPaceText}" Margin="0,5,0,0" FontSize="10" FontWeight="Bold" TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
 
-                <Border Margin="0,12,0,0" Padding="14" CornerRadius="12"
-                        Background="#FF17191C" BorderBrush="#FF303338" BorderThickness="1">
-                    <StackPanel>
-                        <TextBlock Text="Autres limites" FontSize="12" FontWeight="SemiBold" Margin="0,0,0,6" />
-                        <ItemsControl ItemsSource="{Binding OtherLimits}">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Grid Margin="0,6,0,6">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="145" />
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
-                                        <TextBlock Grid.Column="1" Text="{Binding Remaining}" FontWeight="SemiBold" Margin="12,0" />
-                                        <TextBlock Grid.Column="2" Text="{Binding Reset}"
-                                                   Foreground="{StaticResource SecondaryText}" HorizontalAlignment="Right" />
-                                    </Grid>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </StackPanel>
-                </Border>
+            <Border Style="{StaticResource CardStyle}" Margin="4,0,0,0" Padding="9">
+                <StackPanel>
+                    <TextBlock Text="{Binding ObservedPaceLabel}" Foreground="{StaticResource SecondaryText}" FontSize="9" TextWrapping="Wrap" />
+                    <TextBlock Text="{Binding CurrentPaceText}" Margin="0,5,0,0" FontSize="10" FontWeight="Bold" TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+        </UniformGrid>
 
-                <Border x:Name="ErrorPanel" Margin="0,12,0,0" Background="#22FF453A"
-                        BorderBrush="#55FF453A" BorderThickness="1"
-                        CornerRadius="10" Padding="12" Visibility="Collapsed">
-                    <TextBlock Text="{Binding ErrorText}" Foreground="#FFFF8A80" TextWrapping="Wrap" />
-                </Border>
-
-                <Grid Margin="0,16,0,0">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <StackPanel>
-                        <TextBlock Text="{Binding PlanText}" Foreground="{StaticResource SecondaryText}" FontSize="10" />
-                        <TextBlock Text="Week-ends et heures inactives exclus des projections"
-                                   Foreground="{StaticResource SecondaryText}" FontSize="10" Margin="0,2,0,0" />
-                    </StackPanel>
-                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,0">
-                        <TextBlock Text="Réserve" Foreground="{StaticResource SecondaryText}"
-                                   VerticalAlignment="Center" Margin="0,0,6,0" />
-                        <TextBox x:Name="SafetyBufferBox" Width="46"
-                                 Text="{Binding SafetyBuffer, UpdateSourceTrigger=LostFocus, StringFormat={}{0:0.#}}"
-                                 Padding="5,3" KeyDown="SafetyBufferBox_KeyDown" />
-                        <TextBlock Text="%" Margin="4,0,0,0" VerticalAlignment="Center" />
-                    </StackPanel>
-                    <Button Grid.Column="2" Content="Masquer" Click="HideButton_Click" />
-                </Grid>
-            </StackPanel>
-        </ScrollViewer>
-    </Border>
+        <Border x:Name="ErrorPanel" Grid.Row="10" Visibility="Collapsed"
+                Background="#33A1281D" BorderBrush="#AAFF7369" BorderThickness="1"
+                CornerRadius="8" Padding="7">
+            <TextBlock Text="{Binding ErrorText}" Foreground="#FFFFA9A2" TextWrapping="Wrap" FontSize="9" />
+        </Border>
+    </Grid>
 </Window>
-

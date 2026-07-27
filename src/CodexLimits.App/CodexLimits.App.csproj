@@ -8,7 +8,6 @@
     <AssemblyName>CodexLimits.Windows</AssemblyName>
     <RootNamespace>CodexLimits.App</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <Version>0.2.0</Version>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\CodexLimits.Core\CodexLimits.Core.csproj" />

@@ -7,25 +7,25 @@ public static class ChartSeriesBuilder
         IReadOnlyList<UsageSample> samples,
         Forecast forecast,
         double safetyBuffer,
-        WorkScheduleSettings schedule)
+        AppSettings settings)
     {
         var window = snapshot.MainLimit.Window;
-        var target = ScheduledLine(window, window.StartsAt, 100, safetyBuffer, schedule);
         var actual = BuildActual(window, samples, snapshot.TokenHistory, snapshot.FetchedAt);
+        var target = BuildTarget(window, safetyBuffer, settings);
         var currentProjection = Projection(
             window,
             snapshot.FetchedAt,
             window.RemainingPercent,
             forecast.CurrentPercentPerDay,
             forecast.ExpectedRemainingAtReset,
-            schedule);
+            settings);
         var historicalProjection = Projection(
             window,
             snapshot.FetchedAt,
             window.RemainingPercent,
             forecast.HistoricalPercentPerDay,
             forecast.HistoricalRemainingAtReset,
-            schedule);
+            settings);
 
         return new ChartState(
             window,
@@ -34,7 +34,49 @@ public static class ChartSeriesBuilder
             target,
             actual,
             currentProjection,
-            historicalProjection);
+            historicalProjection,
+            ScheduleMath.GetInactiveIntervals(window.StartsAt, window.ResetsAt, settings));
+    }
+
+    private static IReadOnlyList<ChartPoint> BuildTarget(
+        UsageWindow window,
+        double safetyBuffer,
+        AppSettings settings)
+    {
+        var intervals = ScheduleMath.GetIntervals(window.StartsAt, window.ResetsAt, settings);
+        var totalHours = intervals.Sum(interval => (interval.End - interval.Start).TotalHours);
+        var points = new List<ChartPoint> { new(window.StartsAt, 100) };
+
+        if (totalHours <= 0)
+        {
+            points.Add(new ChartPoint(window.ResetsAt, 100));
+            return points;
+        }
+
+        var consumedHours = 0d;
+        var targetRemaining = 100d;
+        foreach (var interval in intervals)
+        {
+            if (points[^1].Time < interval.Start)
+            {
+                points.Add(new ChartPoint(interval.Start, targetRemaining));
+            }
+
+            consumedHours += (interval.End - interval.Start).TotalHours;
+            targetRemaining = 100 - (100 - safetyBuffer) * consumedHours / totalHours;
+            points.Add(new ChartPoint(interval.End, Math.Clamp(targetRemaining, safetyBuffer, 100)));
+        }
+
+        if (points[^1].Time < window.ResetsAt)
+        {
+            points.Add(new ChartPoint(window.ResetsAt, Math.Clamp(targetRemaining, safetyBuffer, 100)));
+        }
+
+        return points
+            .GroupBy(point => point.Time)
+            .Select(group => group.Last())
+            .OrderBy(point => point.Time)
+            .ToArray();
     }
 
     private static IReadOnlyList<ChartPoint> BuildActual(
@@ -87,103 +129,45 @@ public static class ChartSeriesBuilder
         UsageWindow window,
         DateTimeOffset now,
         double remainingNow,
-        double percentPerWorkingDay,
+        double percentPerDay,
         double remainingAtReset,
-        WorkScheduleSettings schedule)
+        AppSettings settings)
     {
+        var points = new List<ChartPoint> { new(now, remainingNow) };
         if (now >= window.ResetsAt)
         {
-            return new[] { new ChartPoint(now, remainingNow) };
+            return points;
         }
 
-        if (percentPerWorkingDay <= 0 || schedule.DailyActiveHours <= 0)
-        {
-            return new[]
-            {
-                new ChartPoint(now, remainingNow),
-                new ChartPoint(window.ResetsAt, Math.Clamp(remainingAtReset, 0, 100))
-            };
-        }
-
-        var points = new List<ChartPoint> { new(now, remainingNow) };
-        var percentPerHour = percentPerWorkingDay / schedule.DailyActiveHours;
         var remaining = remainingNow;
-        var lastTime = now;
-
-        foreach (var interval in schedule.GetActiveIntervals(now, window.ResetsAt))
+        var percentPerHour = Math.Max(percentPerDay, 0) / ScheduleMath.GetNominalDailyHours(settings);
+        foreach (var interval in ScheduleMath.GetIntervals(now, window.ResetsAt, settings))
         {
-            if (interval.Start > lastTime)
+            if (points[^1].Time < interval.Start)
             {
                 points.Add(new ChartPoint(interval.Start, remaining));
             }
 
             var availableHours = (interval.End - interval.Start).TotalHours;
-            var consumption = availableHours * percentPerHour;
-            if (consumption >= remaining)
+            if (percentPerHour > 0 && remaining - percentPerHour * availableHours <= 0)
             {
-                var hoursToEmpty = remaining / percentPerHour;
-                points.Add(new ChartPoint(interval.Start.AddHours(hoursToEmpty), 0));
+                points.Add(new ChartPoint(interval.Start.AddHours(remaining / percentPerHour), 0));
                 return points;
             }
 
-            remaining -= consumption;
+            remaining = Math.Max(remaining - percentPerHour * availableHours, 0);
             points.Add(new ChartPoint(interval.End, remaining));
-            lastTime = interval.End;
         }
 
         if (points[^1].Time < window.ResetsAt)
         {
-            points.Add(new ChartPoint(window.ResetsAt, remaining));
+            points.Add(new ChartPoint(window.ResetsAt, Math.Clamp(remainingAtReset, 0, 100)));
         }
 
-        points[^1] = new ChartPoint(points[^1].Time, Math.Clamp(remainingAtReset, 0, 100));
-        return points;
-    }
-
-    private static IReadOnlyList<ChartPoint> ScheduledLine(
-        UsageWindow window,
-        DateTimeOffset start,
-        double remainingAtStart,
-        double remainingAtEnd,
-        WorkScheduleSettings schedule)
-    {
-        var intervals = schedule.GetActiveIntervals(start, window.ResetsAt);
-        var totalHours = intervals.Sum(interval => (interval.End - interval.Start).TotalHours);
-        if (totalHours <= 0)
-        {
-            return new[]
-            {
-                new ChartPoint(start, remainingAtStart),
-                new ChartPoint(window.ResetsAt, remainingAtEnd)
-            };
-        }
-
-        var points = new List<ChartPoint> { new(start, remainingAtStart) };
-        var remaining = remainingAtStart;
-        var dropPerHour = (remainingAtStart - remainingAtEnd) / totalHours;
-        var lastTime = start;
-
-        foreach (var interval in intervals)
-        {
-            if (interval.Start > lastTime)
-            {
-                points.Add(new ChartPoint(interval.Start, remaining));
-            }
-
-            remaining -= (interval.End - interval.Start).TotalHours * dropPerHour;
-            points.Add(new ChartPoint(interval.End, remaining));
-            lastTime = interval.End;
-        }
-
-        if (points[^1].Time < window.ResetsAt)
-        {
-            points.Add(new ChartPoint(window.ResetsAt, remainingAtEnd));
-        }
-        else
-        {
-            points[^1] = new ChartPoint(points[^1].Time, remainingAtEnd);
-        }
-
-        return points;
+        return points
+            .GroupBy(point => point.Time)
+            .Select(group => group.Last())
+            .OrderBy(point => point.Time)
+            .ToArray();
     }
 }

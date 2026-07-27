@@ -7,14 +7,14 @@ public static class ScheduleMath
     public static bool IsActive(DateTimeOffset instant, AppSettings settings)
     {
         var normalized = settings.Normalize();
-        return GetIntervals(instant.AddDays(-7), instant.AddDays(7), normalized)
+        return GetIntervals(instant.AddDays(-1), instant.AddDays(1), normalized)
             .Any(interval => instant >= interval.Start && instant < interval.End);
     }
 
     public static DateTimeOffset GetNextStart(DateTimeOffset instant, AppSettings settings)
     {
         var normalized = settings.Normalize();
-        var candidate = GetIntervals(instant.AddDays(-7), instant.AddDays(21), normalized)
+        var candidate = GetIntervals(instant.AddDays(-1), instant.AddDays(21), normalized)
             .Where(interval => interval.End > instant)
             .OrderBy(interval => interval.Start)
             .FirstOrDefault();
@@ -35,23 +35,22 @@ public static class ScheduleMath
         if (rangeEnd <= rangeStart) return Array.Empty<TimeRange>();
 
         var normalized = settings.Normalize();
-        var localStart = rangeStart.ToLocalTime().DateTime;
-        var weekStart = StartOfWeek(localStart.Date).AddDays(-7);
-        var lastWeek = StartOfWeek(rangeEnd.ToLocalTime().DateTime.Date).AddDays(7);
+        var firstLocalDate = rangeStart.ToLocalTime().Date.AddDays(-1);
+        var lastLocalDate = rangeEnd.ToLocalTime().Date.AddDays(1);
         var intervals = new List<TimeRange>();
 
-        for (var monday = weekStart; monday <= lastWeek; monday = monday.AddDays(7))
+        for (var localDate = firstLocalDate; localDate <= lastLocalDate; localDate = localDate.AddDays(1))
         {
-            var startLocal = monday
-                .AddDays(MondayBasedIndex(normalized.StartDay))
-                .Add(normalized.StartTime);
-            var endLocal = monday
-                .AddDays(MondayBasedIndex(normalized.EndDay))
-                .Add(normalized.EndTime);
+            if (!IsSelectedDay(localDate.DayOfWeek, normalized.StartDay, normalized.EndDay))
+            {
+                continue;
+            }
 
+            var startLocal = localDate.Add(normalized.StartTime);
+            var endLocal = localDate.Add(normalized.EndTime);
             if (endLocal <= startLocal)
             {
-                endLocal = endLocal.AddDays(7);
+                endLocal = endLocal.AddDays(1);
             }
 
             var start = ToLocalOffset(startLocal);
@@ -84,6 +83,7 @@ public static class ScheduleMath
             {
                 inactive.Add(new TimeRange(cursor, interval.Start));
             }
+
             if (interval.End > cursor)
             {
                 cursor = interval.End;
@@ -105,6 +105,24 @@ public static class ScheduleMath
         GetIntervals(rangeStart, rangeEnd, settings)
             .Sum(interval => (interval.End - interval.Start).TotalHours);
 
+    public static double GetNominalDailyHours(AppSettings settings)
+    {
+        var normalized = settings.Normalize();
+        var duration = normalized.EndTime - normalized.StartTime;
+        if (duration <= TimeSpan.Zero)
+        {
+            duration = duration.Add(TimeSpan.FromDays(1));
+        }
+
+        return Math.Max(duration.TotalHours, 1d / 60d);
+    }
+
+    public static double GetActiveWorkDays(
+        DateTimeOffset rangeStart,
+        DateTimeOffset rangeEnd,
+        AppSettings settings) =>
+        GetActiveHours(rangeStart, rangeEnd, settings) / GetNominalDailyHours(settings);
+
     public static DateTimeOffset? AddActiveHours(
         DateTimeOffset start,
         double activeHours,
@@ -121,6 +139,7 @@ public static class ScheduleMath
             {
                 return interval.Start.AddHours(remaining);
             }
+
             remaining -= available;
         }
 
@@ -134,10 +153,15 @@ public static class ScheduleMath
         GetIntervals(rangeStart, rangeEnd, settings)
             .LastOrDefault()?.End;
 
-    private static DateTime StartOfWeek(DateTime date)
+    private static bool IsSelectedDay(DayOfWeek day, DayOfWeek startDay, DayOfWeek endDay)
     {
-        var daysSinceMonday = ((int)date.DayOfWeek + 6) % 7;
-        return date.AddDays(-daysSinceMonday);
+        var dayIndex = MondayBasedIndex(day);
+        var startIndex = MondayBasedIndex(startDay);
+        var endIndex = MondayBasedIndex(endDay);
+
+        return startIndex <= endIndex
+            ? dayIndex >= startIndex && dayIndex <= endIndex
+            : dayIndex >= startIndex || dayIndex <= endIndex;
     }
 
     private static int MondayBasedIndex(DayOfWeek day) => ((int)day + 6) % 7;

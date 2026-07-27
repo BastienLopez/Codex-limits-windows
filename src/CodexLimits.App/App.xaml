@@ -4,39 +4,74 @@
              ShutdownMode="OnExplicitShutdown"
              Startup="Application_Startup">
     <Application.Resources>
-        <SolidColorBrush x:Key="WindowBackground" Color="#FF0B0C0E" />
-        <SolidColorBrush x:Key="PanelBackground" Color="#FF111315" />
-        <SolidColorBrush x:Key="BorderBrush" Color="#FF34373B" />
-        <SolidColorBrush x:Key="PrimaryText" Color="#FFF4F4F5" />
-        <SolidColorBrush x:Key="SecondaryText" Color="#FFA0A3A8" />
+        <SolidColorBrush x:Key="WindowBackground" Color="#FF060A10" />
+        <SolidColorBrush x:Key="PanelBackground" Color="#FF0C121C" />
+        <SolidColorBrush x:Key="PanelBackgroundRaised" Color="#FF101827" />
+        <SolidColorBrush x:Key="BorderBrush" Color="#FF243044" />
+        <SolidColorBrush x:Key="PrimaryText" Color="#FFF6F8FC" />
+        <SolidColorBrush x:Key="SecondaryText" Color="#FFAAB5C8" />
+        <SolidColorBrush x:Key="MutedText" Color="#FF7D8AA0" />
+        <SolidColorBrush x:Key="AccentBrush" Color="#FF3A8DFF" />
+        <SolidColorBrush x:Key="SuccessBrush" Color="#FF58D26F" />
+        <SolidColorBrush x:Key="WarningBrush" Color="#FFFF7369" />
+        <SolidColorBrush x:Key="PauseBrush" Color="#FFF4A640" />
+
+        <Style x:Key="CardStyle" TargetType="Border">
+            <Setter Property="Background" Value="#CC0C121C" />
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="18" />
+            <Setter Property="Padding" Value="20" />
+        </Style>
+
+        <Style x:Key="MetricCardStyle" TargetType="Border" BasedOn="{StaticResource CardStyle}">
+            <Setter Property="Padding" Value="18" />
+        </Style>
 
         <Style TargetType="Button">
             <Setter Property="Foreground" Value="{StaticResource PrimaryText}" />
-            <Setter Property="Background" Value="#FF202328" />
-            <Setter Property="BorderBrush" Value="#FF454950" />
+            <Setter Property="Background" Value="#FF172131" />
+            <Setter Property="BorderBrush" Value="#FF31425B" />
             <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Padding" Value="10,6" />
+            <Setter Property="Padding" Value="16,10" />
             <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+
+        <Style x:Key="IconButtonStyle" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Width" Value="46" />
+            <Setter Property="Height" Value="44" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="FontSize" Value="18" />
+            <Setter Property="Background" Value="#991B2432" />
+            <Setter Property="BorderBrush" Value="#FF34445E" />
         </Style>
 
         <Style TargetType="TextBox">
+            <Setter Property="Background" Value="#FF0B111A" />
             <Setter Property="Foreground" Value="{StaticResource PrimaryText}" />
-            <Setter Property="Background" Value="#FF1C1F23" />
-            <Setter Property="BorderBrush" Value="#FF454950" />
+            <Setter Property="BorderBrush" Value="#FF32435D" />
             <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="10,8" />
             <Setter Property="CaretBrush" Value="White" />
         </Style>
 
         <Style TargetType="ComboBox">
-            <Setter Property="Foreground" Value="#FF101114" />
-            <Setter Property="Background" Value="#FFF0F0F0" />
-            <Setter Property="BorderBrush" Value="#FF555960" />
+            <Setter Property="Background" Value="#FF101827" />
+            <Setter Property="Foreground" Value="{StaticResource PrimaryText}" />
+            <Setter Property="BorderBrush" Value="#FF32435D" />
             <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Padding" Value="6,3" />
+            <Setter Property="Padding" Value="8,6" />
         </Style>
 
         <Style TargetType="CheckBox">
             <Setter Property="Foreground" Value="{StaticResource PrimaryText}" />
+        </Style>
+
+        <Style TargetType="ProgressBar">
+            <Setter Property="Height" Value="8" />
+            <Setter Property="Background" Value="#FF1D2734" />
+            <Setter Property="Foreground" Value="{StaticResource AccentBrush}" />
         </Style>
     </Application.Resources>
 </Application>
