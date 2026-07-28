@@ -41,3 +41,5 @@ Les erreurs de projection sans impact de sécurité doivent être signalées com
 ## Dépendance Codex CLI
 
 Codex Limits Windows démarre le Codex CLI local avec `app-server --listen stdio://`. Les vulnérabilités du CLI officiel doivent également être signalées au projet OpenAI Codex selon son propre processus de sécurité.
+
+Si aucun exécutable Codex CLI local n’est trouvé, l’application peut, uniquement après confirmation explicite, exécuter l’installateur Windows officiel publié à `https://chatgpt.com/codex/install.ps1`. Une installation existante n’est ni mise à jour ni soumise à un contrôle de connexion par Codex Limits Windows. Toute modification de cette URL, suppression de la confirmation ou ajout d’une autre source de téléchargement doit être considérée comme une modification sensible et faire l’objet d’une revue de sécurité.

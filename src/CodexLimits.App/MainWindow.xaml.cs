@@ -189,7 +189,7 @@ public partial class MainWindow : Window, IDisposable
             return separator > 0 ? informational[..separator] : informational;
         }
 
-        return assembly.GetName().Version?.ToString(3) ?? "0.5.3";
+        return assembly.GetName().Version?.ToString(3) ?? "0.6.4";
     }
 
     private void UpdateLocalizedShellText()

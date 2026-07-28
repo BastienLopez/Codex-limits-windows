@@ -53,7 +53,7 @@ public sealed class CodexAppServerClient : IUsageProvider
             process.BeginErrorReadLine();
 
             await process.StandardInput.WriteLineAsync(
-                "{\"id\":1,\"method\":\"initialize\",\"params\":{\"clientInfo\":{\"name\":\"codex-limits-windows\",\"title\":\"Codex Limits Windows\",\"version\":\"0.5.3\"},\"capabilities\":{\"experimentalApi\":true}}}");
+                "{\"id\":1,\"method\":\"initialize\",\"params\":{\"clientInfo\":{\"name\":\"codex-limits-windows\",\"title\":\"Codex Limits Windows\",\"version\":\"0.6.4\"},\"capabilities\":{\"experimentalApi\":true}}}");
             await process.StandardInput.FlushAsync();
 
             var fetchedAt = DateTimeOffset.UtcNow;

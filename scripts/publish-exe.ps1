@@ -1,4 +1,4 @@
-﻿param(
+param(
     [ValidateSet('win-x64', 'win-arm64')]
     [string]$Runtime = 'win-x64'
 )
@@ -7,7 +7,7 @@ $ErrorActionPreference = 'Stop'
 Set-Location (Split-Path $PSScriptRoot -Parent)
 
 if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) {
-    throw 'Le SDK .NET 8 est requis : https://dotnet.microsoft.com/download/dotnet/8.0'
+    throw 'The .NET 8 SDK is required to create a release build.'
 }
 
 & .\scripts\test.ps1
@@ -18,15 +18,25 @@ if (-not $version) {
     $version = '0.0.0'
 }
 
-$releaseRoot = Join-Path (Get-Location) 'artifacts\release'
-$publishDirectory = Join-Path $releaseRoot "Codex-Limits-Windows-$version-$Runtime"
-$zipPath = Join-Path $releaseRoot "Codex-Limits-Windows-$version-$Runtime.zip"
-$hashPath = "$zipPath.sha256"
+$artifactsRoot = Join-Path (Get-Location) 'artifacts'
+$stagingDirectory = Join-Path $artifactsRoot "publish\$Runtime"
+$releaseRoot = Join-Path $artifactsRoot 'release'
+$releaseBaseName = "CodexLimits.Windows-$version-$Runtime"
+$releaseExe = Join-Path $releaseRoot "$releaseBaseName.exe"
+$releaseExeHash = "$releaseExe.sha256"
+$releaseZip = Join-Path $releaseRoot "$releaseBaseName.zip"
+$releaseZipHash = "$releaseZip.sha256"
+$bundleDirectory = Join-Path $artifactsRoot "bundle\$releaseBaseName"
 
-Remove-Item -LiteralPath $publishDirectory -Recurse -Force -ErrorAction SilentlyContinue
-Remove-Item -LiteralPath $zipPath -Force -ErrorAction SilentlyContinue
-Remove-Item -LiteralPath $hashPath -Force -ErrorAction SilentlyContinue
-New-Item -ItemType Directory -Path $publishDirectory -Force | Out-Null
+Remove-Item -LiteralPath $stagingDirectory -Recurse -Force -ErrorAction SilentlyContinue
+Remove-Item -LiteralPath $bundleDirectory -Recurse -Force -ErrorAction SilentlyContinue
+Remove-Item -LiteralPath $releaseExe -Force -ErrorAction SilentlyContinue
+Remove-Item -LiteralPath $releaseExeHash -Force -ErrorAction SilentlyContinue
+Remove-Item -LiteralPath $releaseZip -Force -ErrorAction SilentlyContinue
+Remove-Item -LiteralPath $releaseZipHash -Force -ErrorAction SilentlyContinue
+New-Item -ItemType Directory -Path $stagingDirectory -Force | Out-Null
+New-Item -ItemType Directory -Path $releaseRoot -Force | Out-Null
+New-Item -ItemType Directory -Path $bundleDirectory -Force | Out-Null
 
 dotnet publish .\src\CodexLimits.App\CodexLimits.App.csproj `
     -c Release `
@@ -34,21 +44,33 @@ dotnet publish .\src\CodexLimits.App\CodexLimits.App.csproj `
     --self-contained true `
     -p:PublishSingleFile=true `
     -p:IncludeNativeLibrariesForSelfExtract=true `
+    -p:EnableCompressionInSingleFile=true `
+    -p:PublishTrimmed=false `
+    -p:PublishReadyToRun=false `
     -p:DebugType=None `
     -p:DebugSymbols=false `
-    -o $publishDirectory
+    -o $stagingDirectory
 
-Get-ChildItem -LiteralPath $publishDirectory -Filter '*.pdb' -File -ErrorAction SilentlyContinue |
-    Remove-Item -Force
+$publishedExe = Join-Path $stagingDirectory 'CodexLimits.Windows.exe'
+if (-not (Test-Path -LiteralPath $publishedExe -PathType Leaf)) {
+    throw "Published executable not found: $publishedExe"
+}
 
-$docsDirectory = Join-Path $publishDirectory 'docs'
-New-Item -ItemType Directory -Path $docsDirectory -Force | Out-Null
-Copy-Item -LiteralPath .\docs\codex-limits.png -Destination $docsDirectory -Force
+Copy-Item -LiteralPath $publishedExe -Destination $releaseExe -Force
+$exeHash = (Get-FileHash -LiteralPath $releaseExe -Algorithm SHA256).Hash.ToLowerInvariant()
+Set-Content -LiteralPath $releaseExeHash -Value "$exeHash  $(Split-Path $releaseExe -Leaf)" -Encoding ascii
 
-Compress-Archive -Path (Join-Path $publishDirectory '*') -DestinationPath $zipPath -CompressionLevel Optimal
-$hash = (Get-FileHash -LiteralPath $zipPath -Algorithm SHA256).Hash.ToLowerInvariant()
-Set-Content -LiteralPath $hashPath -Value "$hash  $(Split-Path $zipPath -Leaf)" -Encoding ascii
+Copy-Item -LiteralPath $publishedExe -Destination (Join-Path $bundleDirectory 'CodexLimits.Windows.exe') -Force
+foreach ($file in @('README.md', 'LICENSE', 'PRIVACY.md', 'SECURITY.md', 'THIRD_PARTY_NOTICES.md', 'TRADEMARKS.md')) {
+    Copy-Item -LiteralPath (Join-Path (Get-Location) $file) -Destination $bundleDirectory -Force
+}
 
-Write-Host "Publication creee : $zipPath"
-Write-Host "SHA-256 : $hashPath"
-Write-Warning 'La distribution est non signee. Une signature Authenticode est recommandee avant publication publique.'
+Compress-Archive -Path (Join-Path $bundleDirectory '*') -DestinationPath $releaseZip -CompressionLevel Optimal
+$zipHash = (Get-FileHash -LiteralPath $releaseZip -Algorithm SHA256).Hash.ToLowerInvariant()
+Set-Content -LiteralPath $releaseZipHash -Value "$zipHash  $(Split-Path $releaseZip -Leaf)" -Encoding ascii
+
+Write-Host "Standalone EXE created: $releaseExe"
+Write-Host "EXE SHA-256: $releaseExeHash"
+Write-Host "Release ZIP created: $releaseZip"
+Write-Host "ZIP SHA-256: $releaseZipHash"
+Write-Warning 'The executable is self-contained but unsigned. Sign it with Authenticode before public distribution.'

@@ -2,7 +2,12 @@ name: ci
 
 on:
   push:
+    branches:
+      - '**'
+    tags:
+      - 'v*'
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -32,26 +37,48 @@ jobs:
             throw "Tracked generated, backup, temporary, or sensitive files:`n$($forbidden -join "`n")"
           }
 
-      - name: Build and smoke tests
+      - name: Build, smoke tests, and standalone EXE
         shell: powershell
-        run: .\scripts\test.ps1
+        run: .\scripts\publish-exe.ps1 -Runtime win-x64
 
-      - name: Publish self-contained Windows x64 build
-        shell: powershell
-        run: |
-          dotnet publish .\src\CodexLimits.App\CodexLimits.App.csproj `
-            -c Release `
-            -r win-x64 `
-            --self-contained true `
-            -p:PublishSingleFile=true `
-            -p:IncludeNativeLibrariesForSelfExtract=true `
-            -p:DebugType=None `
-            -p:DebugSymbols=false `
-            -o .\artifacts\ci-win-x64
-
-      - name: Upload CI build
+      - name: Upload standalone release files
         uses: actions/upload-artifact@v4
         with:
-          name: Codex-Limits-Windows-ci-win-x64
-          path: artifacts/ci-win-x64
+          name: Codex-Limits-Windows-win-x64
+          path: |
+            artifacts/release/*.exe
+            artifacts/release/*.exe.sha256
+            artifacts/release/*.zip
+            artifacts/release/*.zip.sha256
           if-no-files-found: error
+
+  github-release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build-test-publish
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download standalone release files
+        uses: actions/download-artifact@v4
+        with:
+          name: Codex-Limits-Windows-win-x64
+          path: release-files
+
+      - name: Create or update GitHub Release
+        shell: powershell
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = $env:GITHUB_REF_NAME
+          $files = Get-ChildItem -LiteralPath .\release-files -File |
+            Where-Object { $_.Name -match '\.(exe|zip)(\.sha256)?$' } |
+            ForEach-Object { $_.FullName }
+
+          gh release view $tag *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $tag @files --clobber
+          } else {
+            gh release create $tag @files --title "Codex Limits Windows $tag" --generate-notes
+          }

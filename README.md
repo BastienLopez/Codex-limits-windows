@@ -7,6 +7,36 @@ Application Windows locale qui affiche le quota Codex restant, mesure le rythme 
 > [!IMPORTANT]
 > **Projet indépendant et non officiel.** Codex Limits Windows n’est ni affilié, ni approuvé, ni soutenu par OpenAI. Les prévisions sont des estimations locales et ne garantissent ni la disponibilité future du service, ni l’exactitude des limites fournies par Codex.
 
+## Installation — télécharger et lancer l’EXE
+
+> [!TIP]
+> **Le dépôt GitHub n’est pas nécessaire pour utiliser l’application.** Télécharge simplement l’EXE depuis la page **Releases**, puis double-clique dessus.
+
+1. Ouvre la page **Releases** du dépôt.
+2. Télécharge `CodexLimits.Windows-<version>-win-x64.exe`.
+3. Lance l’EXE.
+
+L’EXE est autonome :
+
+- aucun runtime .NET n’est à installer ou à télécharger, car .NET 8 est inclus dans l’EXE ;
+- aucun clone, `git pull`, SDK .NET ou script PowerShell n’est nécessaire pour l’utilisateur final ;
+- si Codex CLI est déjà installé, il est réutilisé immédiatement, sans téléchargement, sans mise à jour et sans contrôle de connexion préalable ;
+- si Codex CLI est absent, l’application propose de lancer l’installateur Windows officiel d’OpenAI ;
+- après le démarrage, l’application peut rester active dans la zone de notification Windows.
+
+L’installation de Codex CLI n’est lancée qu’après confirmation explicite et uniquement lorsqu’aucun exécutable Codex local n’est trouvé. Elle utilise :
+
+```text
+https://chatgpt.com/codex/install.ps1
+```
+
+## Compatibilité
+
+- **Windows 10/11 x64 : pris en charge** via l’EXE autonome.
+- **Windows ARM64 : non publié actuellement** ; une build dédiée peut être ajoutée plus tard.
+- **Linux : non pris en charge actuellement.** L’interface utilise WPF, une technologie Windows. Un simple fichier `.sh` ne peut donc pas faire fonctionner cette version sous Linux. Une version Linux nécessiterait un port de l’interface vers une technologie multiplateforme, par exemple Avalonia, puis la création d’un binaire Linux accompagné éventuellement d’un script `.sh`.
+
+
 ## Fonctionnalités
 
 - lecture du quota via l’interface locale documentée de `codex app-server` ;
@@ -16,7 +46,7 @@ Application Windows locale qui affiche le quota Codex restant, mesure le rythme 
 - quota encore utilisable aujourd’hui pour rester sur la cible ;
 - planning configurable : jours, horaires et fréquence d’actualisation ;
 - réserve de sécurité configurable ;
-- historique local limité à 90 jours, avec suppression des anciens fichiers au chargement ;
+- historique local limité à 90 jours ;
 - français et anglais ;
 - fonctionnement en arrière-plan dans la zone de notification Windows ;
 - icône et infobulle avec quota total restant et quota encore utilisable aujourd’hui.
@@ -26,8 +56,7 @@ Application Windows locale qui affiche le quota Codex restant, mesure le rythme 
 Fermer, réduire ou masquer la fenêtre ne termine pas l’application. Au premier passage en arrière-plan, un message explique ce comportement.
 
 - double-clique sur l’icône de la zone de notification pour rouvrir la fenêtre ;
-- clic droit → **Quitter** pour arrêter complètement le processus ;
-- `scripts/run-background.ps1` démarre directement l’application sans afficher la fenêtre principale.
+- clic droit → **Quitter** pour arrêter complètement le processus.
 
 Le lancement automatique avec Windows n’est pas activé par défaut.
 
@@ -44,21 +73,71 @@ Les données locales sont stockées dans :
 └── History\*.jsonl
 ```
 
-L’historique contient uniquement :
+L’historique contient uniquement l’heure d’observation, le pourcentage restant et l’heure de reset. Consulte [PRIVACY.md](PRIVACY.md) pour le détail des communications réseau liées à l’installation optionnelle de Codex CLI.
 
-- l’heure d’observation ;
-- le pourcentage de quota restant ;
-- l’heure de reset annoncée.
+## Utiliser les sources — développeurs uniquement
 
-Pour supprimer toutes les données locales : quitte l’application, puis supprime `%LOCALAPPDATA%\CodexLimitsWindows`.
+Cette section concerne uniquement les personnes qui souhaitent modifier, compiler ou contribuer au projet. Pour utiliser normalement l’application, télécharge simplement l’EXE depuis **Releases** : le dépôt n’est pas nécessaire.
 
-Consulte [PRIVACY.md](PRIVACY.md) pour la politique complète.
+Le dépôt conserve uniquement le code source et les fichiers nécessaires au projet. L’exécutable généré est publié dans GitHub Releases et n’est pas versionné dans Git.
 
-## Prérequis
+Prérequis développeur :
 
-- Windows 10 ou Windows 11 ;
-- Codex CLI installé, accessible dans le `PATH` et connecté ;
-- SDK .NET 8 pour compiler depuis les sources.
+- Windows 10 ou Windows 11 x64 ;
+- SDK .NET 8 ;
+- Codex CLI pour tester la lecture réelle du quota.
+
+### Lancer depuis les sources
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\run.ps1
+```
+
+### Compiler et tester
+
+```powershell
+dotnet build .\CodexLimits.Windows.sln --configuration Release
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\test.ps1
+```
+
+### Générer l’EXE autonome
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\publish-exe.ps1
+```
+
+Résultats créés dans `artifacts\release` :
+
+```text
+CodexLimits.Windows-<version>-win-x64.exe
+CodexLimits.Windows-<version>-win-x64.exe.sha256
+CodexLimits.Windows-<version>-win-x64.zip
+CodexLimits.Windows-<version>-win-x64.zip.sha256
+```
+
+Le ZIP contient l’EXE et les documents légaux. L’EXE lui-même est autonome et inclut le runtime .NET 8.
+
+## CI/CD et publication
+
+La CI GitHub Actions :
+
+1. vérifie que le dépôt ne contient pas de sauvegarde, secret ou fichier généré suivi par Git ;
+2. compile la solution ;
+3. exécute les smoke tests ;
+4. produit l’EXE autonome Windows x64 ;
+5. publie les fichiers comme artefact de workflow ;
+6. crée ou met à jour automatiquement une GitHub Release lorsqu’un tag `v*` est poussé.
+
+Exemple de publication :
+
+```powershell
+git tag v0.6.4
+git push origin v0.6.4
+```
+
+L’exécutable n’est pas signé par défaut. Une signature Authenticode est recommandée avant une distribution publique afin de réduire les avertissements SmartScreen.
+
+## Fonctionnement technique
 
 L’application lance localement :
 
@@ -66,43 +145,7 @@ L’application lance localement :
 codex app-server --listen stdio://
 ```
 
-puis lit `account/rateLimits/read`. Cette surface est documentée dans le dépôt officiel Codex :
-
-- https://github.com/openai/codex/blob/main/codex-rs/app-server/README.md
-
-## Lancer depuis les sources
-
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\run.ps1
-```
-
-### Lancer directement en arrière-plan
-
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-background.ps1
-```
-
-## Compiler et tester
-
-```powershell
-dotnet build .\CodexLimits.Windows.sln --configuration Release
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\test.ps1
-```
-
-## Créer une distribution autonome
-
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\publish-exe.ps1
-```
-
-Le script :
-
-1. exécute le build Release et les smoke tests ;
-2. publie une application autonome `win-x64` ;
-3. copie les licences et documents de confidentialité ;
-4. crée une archive ZIP et un fichier SHA-256 dans `artifacts\release`.
-
-L’archive produite n’est pas signée par défaut. Pour une distribution publique, signe l’exécutable avec un certificat Authenticode reconnu ou utilise un canal de distribution qui signe le package.
+puis lit `account/rateLimits/read`. L’application ne contourne pas les quotas et ne manipule pas les identifiants Codex.
 
 ## Limites connues
 
@@ -110,13 +153,15 @@ L’archive produite n’est pas signée par défaut. Pour une distribution publ
 - les prévisions deviennent plus fiables après plusieurs échantillons locaux ;
 - une consommation très irrégulière peut rendre la projection moins représentative ;
 - Windows peut afficher un avertissement SmartScreen pour un exécutable non signé ;
+- l’installation optionnelle de Codex CLI, uniquement lorsqu’il est absent, nécessite une connexion Internet et Windows PowerShell ;
+- cette version graphique ne fonctionne pas nativement sous Linux, car elle utilise WPF ;
 - le nom du projet conserve le terme « Codex » à titre descriptif. Consulte [TRADEMARKS.md](TRADEMARKS.md).
 
 ## Structure
 
 ```text
 src/
-├── CodexLimits.App/       Interface WPF, paramètres, icône système
+├── CodexLimits.App/       Interface WPF, installation Codex si absent, paramètres, icône système
 └── CodexLimits.Core/      Lecture du quota, planning, prévisions, historique
 
 tests/
