@@ -1,113 +1,93 @@
-# Codex Limits Windows — prototype local v0.2
+# Codex Limits Windows
 
-Port Windows expérimental de l’interface et du moteur de prévision de
-[`thrr87/codex-limits`](https://github.com/thrr87/codex-limits).
+Codex Limits Windows est une application WPF locale qui affiche le quota Codex restant, son rythme de consommation et une projection adaptée à un planning de travail configurable.
 
-Fonctions principales :
+![Aperçu de Codex Limits Windows](docs/codex-limits.png)
 
-- quota Codex restant via le Codex CLI local ;
-- courbes **Target / Actual / Current / Historical** ;
-- projection jusqu’au reset et estimation d’épuisement ;
-- rythme conseillé par heure active ou par jour travaillé ;
-- planning configurable par jours et horaires ;
-- week-ends et périodes inactives exclus des calculs ;
-- actualisation automatique configurable, 30 minutes par défaut ;
-- historique JSONL conservé uniquement en local ;
-- icône dans la zone de notification.
+## Fonctionnalités
 
-## Planning par défaut
+- lecture du quota réel via `codex app-server` ;
+- pourcentage restant et consommé ;
+- objectif journalier, consommation réelle, projection actuelle et historique ;
+- estimation du quota restant à la fin du planning ;
+- quota encore utilisable aujourd’hui pour rester sur la cible ;
+- planning configurable : jours, horaires et fréquence d’actualisation ;
+- réserve de sécurité configurable ;
+- historique enregistré localement ;
+- fonctionnement en zone de notification Windows ;
+- icône agrandie dans la barre des tâches et la zone de notification ;
+- info-bulle de l’icône avec le quota total restant et le quota encore utilisable aujourd’hui ;
+- interface disponible en français et en anglais.
 
-La version 0.2 démarre avec :
+## Confidentialité
 
-```text
-Lundi à vendredi
-09:00 à 18:00
-Actualisation toutes les 30 minutes
-```
+L’application fonctionne localement :
 
-Le bouton **⚙** ouvre une fenêtre permettant de modifier les jours, les heures
-et la fréquence. En dehors du planning, les projections ne font pas avancer le
-temps de consommation et aucune actualisation automatique n’est lancée. Le
-bouton d’actualisation manuelle reste utilisable.
+- elle ne lit pas les conversations ou les prompts Codex ;
+- elle n’envoie aucune télémétrie ;
+- elle n’enregistre que l’historique nécessaire au calcul de consommation ;
+- elle utilise la session Codex déjà ouverte sur la machine.
 
 ## Prérequis
 
-1. Windows 10 ou 11 x64.
-2. SDK .NET 8.
-3. Codex CLI installé et connecté.
-4. La commande `codex` doit fonctionner dans PowerShell.
+- Windows 10 ou Windows 11 ;
+- SDK .NET 8 pour compiler le projet ;
+- Codex CLI installé et connecté.
 
-```powershell
-codex --version
-dotnet --info
-```
-
-## Compilation
-
-```powershell
-dotnet build .\CodexLimits.Windows.sln --configuration Debug
-```
-
-## Mode démo
-
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-demo.ps1
-```
-
-## Données Codex réelles
+## Lancer l’application
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\run.ps1
 ```
 
-Le programme lance localement :
-
-```text
-codex app-server --listen stdio://
-```
-
-Puis demande uniquement :
-
-```text
-account/rateLimits/read
-```
-
-Aucun identifiant, prompt, réponse ou fichier de code n’est lu ou enregistré.
-
-## Tests locaux
+## Lancer directement en arrière-plan
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\test.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-background.ps1
 ```
 
-## Données locales
+La réduction, le bouton **Masquer** et la fermeture de la fenêtre cachent l’interface sans arrêter l’application. Le suivi et les actualisations continuent depuis la zone de notification. Double-clique sur l’icône pour rouvrir la fenêtre et utilise **Quitter** dans son menu pour arrêter réellement le processus.
 
-Historique du quota :
+## Compiler
 
-```text
-%LOCALAPPDATA%\CodexLimitsWindows\History\
+```powershell
+dotnet build .\CodexLimits.Windows.sln --configuration Debug
 ```
 
-Planning et fréquence :
+Le build génère automatiquement `docs/icon.ico` à partir de `docs/icon.png`. Cette icône est utilisée pour l’exécutable, les fenêtres Windows et la zone de notification.
 
-```text
-%LOCALAPPDATA%\CodexLimitsWindows\settings.json
-```
-
-Les échantillons d’historique contiennent seulement la date d’observation, le
-pourcentage restant et la date du reset.
-
-## Publication future en `.exe`
-
-Après validation du build, du mode démo et des données réelles :
+## Publier un exécutable autonome
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\publish-exe.ps1
 ```
 
-Le résultat est écrit dans `artifacts\win-x64\`.
+La publication est créée dans :
 
-## Licence et attribution
+```text
+artifacts\win-x64
+```
 
-MIT. Voir `LICENSE` et `THIRD_PARTY_NOTICES.md`. Les parties adaptées de
-`thrr87/codex-limits` conservent leur attribution.
+## Structure principale
+
+```text
+src/
+├── CodexLimits.App/       Interface WPF, paramètres et icône système
+└── CodexLimits.Core/      Calculs de planning, prévisions et historique
+
+tests/
+└── CodexLimits.SmokeTests/
+
+docs/
+├── icon.png               Icône source du projet
+├── icon.ico               Icône Windows générée automatiquement
+└── codex-limits.png       Capture d’écran utilisée dans ce README
+```
+
+## Crédits
+
+Ce projet Windows est inspiré du projet open source [`thrr87/codex-limits`](https://github.com/thrr87/codex-limits).
+
+## Licence
+
+Distribué sous licence MIT. Voir [LICENSE](LICENSE).

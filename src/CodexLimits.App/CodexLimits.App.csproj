@@ -8,8 +8,21 @@
     <AssemblyName>CodexLimits.Windows</AssemblyName>
     <RootNamespace>CodexLimits.App</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>..\..\docs\icon.ico</ApplicationIcon>
   </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\CodexLimits.Core\CodexLimits.Core.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="..\..\docs\icon.png">
+      <Link>docs\icon.png</Link>
+      <LogicalName>docs/icon.png</LogicalName>
+    </Resource>
+  </ItemGroup>
+
+  <Target Name="GenerateApplicationIcon" BeforeTargets="PrepareForBuild">
+    <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\..\..\scripts\generate-icon.ps1&quot; -SourcePath &quot;$(MSBuildProjectDirectory)\..\..\docs\icon.png&quot; -DestinationPath &quot;$(MSBuildProjectDirectory)\..\..\docs\icon.ico&quot;" />
+  </Target>
 </Project>

@@ -32,7 +32,7 @@ public sealed class BurnDownChartControl : System.Windows.FrameworkElement
         base.OnRender(dc);
 
         dc.DrawRoundedRectangle(
-            new System.Windows.Media.SolidColorBrush(Color.FromRgb(12, 15, 19)),
+            new System.Windows.Media.SolidColorBrush(Color.FromRgb(16, 16, 16)),
             null,
             new Rect(RenderSize),
             10,

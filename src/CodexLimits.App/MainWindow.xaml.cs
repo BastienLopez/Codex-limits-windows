@@ -14,6 +14,8 @@ public partial class MainWindow : Window, IDisposable
     private readonly MainViewModel _viewModel;
     private readonly SettingsStore _settingsStore = new();
     private readonly Forms.NotifyIcon _trayIcon;
+    private readonly System.Drawing.Image? _trayBaseImage;
+    private System.Drawing.Icon? _trayRenderedIcon;
     private readonly Forms.ToolStripMenuItem _showMenuItem;
     private readonly Forms.ToolStripMenuItem _refreshMenuItem;
     private readonly Forms.ToolStripMenuItem _settingsMenuItem;
@@ -48,9 +50,13 @@ public partial class MainWindow : Window, IDisposable
         menu.Items.Add(new Forms.ToolStripSeparator());
         menu.Items.Add(_exitMenuItem);
 
+        _trayBaseImage = TrayIconRenderer.LoadBaseImage();
+        _trayRenderedIcon = TrayIconRenderer.CreateTrayIcon(_trayBaseImage);
+        Icon = TrayIconRenderer.CreateWindowIcon(_trayBaseImage);
+
         _trayIcon = new Forms.NotifyIcon
         {
-            Icon = System.Drawing.SystemIcons.Application,
+            Icon = _trayRenderedIcon,
             Visible = true,
             Text = "Codex Limits Windows",
             ContextMenuStrip = menu
@@ -162,9 +168,11 @@ public partial class MainWindow : Window, IDisposable
     {
         var trayText = UiText.Get(
             _viewModel.Settings.Language,
-            $"Codex : {_viewModel.RemainingText} % restant",
-            $"Codex: {_viewModel.RemainingText}% remaining");
+            $"Codex : {_viewModel.RemainingText} % restant | Aujourd'hui : {_viewModel.AvailableTodayPercent:0} % utilisables",
+            $"Codex: {_viewModel.RemainingText}% remaining | Today: {_viewModel.AvailableTodayPercent:0}% available");
+
         _trayIcon.Text = trayText.Length <= 63 ? trayText : trayText[..63];
+
     }
 
     private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -174,7 +182,7 @@ public partial class MainWindow : Window, IDisposable
             UpdateChart();
         }
 
-        if (e.PropertyName == nameof(MainViewModel.RemainingText))
+        if (e.PropertyName is nameof(MainViewModel.RemainingText) or nameof(MainViewModel.AvailableTodayPercent))
         {
             UpdateTrayText();
         }
@@ -185,22 +193,43 @@ public partial class MainWindow : Window, IDisposable
         }
     }
 
-    private void HideButton_Click(object sender, System.Windows.RoutedEventArgs e) => Hide();
+    private void HideButton_Click(object sender, System.Windows.RoutedEventArgs e) => HideToTray();
+
+    private void Window_StateChanged(object? sender, EventArgs e)
+    {
+        if (!_exitRequested && WindowState == System.Windows.WindowState.Minimized)
+        {
+            Dispatcher.BeginInvoke(new Action(HideToTray));
+        }
+    }
+
 
     private void Window_Closing(object? sender, CancelEventArgs e)
     {
         if (_exitRequested) return;
         e.Cancel = true;
+        HideToTray();
+    }
+
+    public void StartHidden()
+    {
+        ShowInTaskbar = false;
+        WindowState = System.Windows.WindowState.Minimized;
+        Show();
+        Hide();
+    }
+
+    private void HideToTray()
+    {
+        ShowInTaskbar = false;
         Hide();
     }
 
     private void ShowFromTray()
     {
+        ShowInTaskbar = true;
+        WindowState = System.Windows.WindowState.Normal;
         Show();
-        if (WindowState == System.Windows.WindowState.Minimized)
-        {
-            WindowState = System.Windows.WindowState.Normal;
-        }
         Activate();
     }
 
@@ -217,6 +246,8 @@ public partial class MainWindow : Window, IDisposable
         _heartbeatTimer.Stop();
         _trayIcon.Visible = false;
         _trayIcon.Dispose();
+        _trayRenderedIcon?.Dispose();
+        _trayBaseImage?.Dispose();
         _viewModel.PropertyChanged -= ViewModel_PropertyChanged;
         GC.SuppressFinalize(this);
     }

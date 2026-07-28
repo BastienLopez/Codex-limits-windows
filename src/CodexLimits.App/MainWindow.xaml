@@ -9,7 +9,9 @@
         Background="{StaticResource WindowBackground}"
         Foreground="{StaticResource PrimaryText}"
         FontFamily="Segoe UI"
+        Icon="pack://application:,,,/docs/icon.png"
         Closing="Window_Closing"
+        StateChanged="Window_StateChanged"
         Loaded="Window_Loaded">
 
     <Grid Margin="18">
@@ -157,10 +159,33 @@
                            FontWeight="Bold" />
 
                 <WrapPanel Grid.Column="1" VerticalAlignment="Center">
-                    <TextBlock Text="{Binding LegendTarget}" Foreground="#FF34C759" Margin="0,0,12,0" FontSize="12" />
-                    <TextBlock Text="{Binding LegendActual}" Foreground="#FF0A84FF" Margin="0,0,12,0" FontSize="12" />
-                    <TextBlock Text="{Binding LegendProjection}" Foreground="#FFFF675F" Margin="0,0,12,0" FontSize="12" />
-                    <TextBlock Text="{Binding LegendHistorical}" Foreground="#FF919196" FontSize="12" />
+                    <StackPanel Orientation="Horizontal" Margin="0,0,14,0" VerticalAlignment="Center">
+                        <Grid Width="18" Height="8" Margin="0,0,6,0">
+                            <Line X1="0" Y1="4" X2="18" Y2="4" Stroke="#FF34C759" StrokeThickness="2" StrokeDashArray="4,2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+                        </Grid>
+                        <TextBlock Text="{Binding LegendTarget}" Foreground="#FF34C759" FontSize="12" />
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" Margin="0,0,14,0" VerticalAlignment="Center">
+                        <Grid Width="18" Height="8" Margin="0,0,6,0">
+                            <Line X1="0" Y1="4" X2="18" Y2="4" Stroke="#FF0A84FF" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+                        </Grid>
+                        <TextBlock Text="{Binding LegendActual}" Foreground="#FF0A84FF" FontSize="12" />
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" Margin="0,0,14,0" VerticalAlignment="Center">
+                        <Grid Width="18" Height="8" Margin="0,0,6,0">
+                            <Line X1="0" Y1="4" X2="18" Y2="4" Stroke="#FFFF675F" StrokeThickness="2" StrokeDashArray="6,3" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+                        </Grid>
+                        <TextBlock Text="{Binding LegendProjection}" Foreground="#FFFF675F" FontSize="12" />
+                    </StackPanel>
+
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <Grid Width="18" Height="8" Margin="0,0,6,0">
+                            <Line X1="0" Y1="4" X2="18" Y2="4" Stroke="#FF919196" StrokeThickness="2" StrokeDashArray="2,2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+                        </Grid>
+                        <TextBlock Text="{Binding LegendHistorical}" Foreground="#FF919196" FontSize="12" />
+                    </StackPanel>
                 </WrapPanel>
             </Grid>
 
@@ -282,4 +307,3 @@
         </Grid>
     </Grid>
 </Window>
-

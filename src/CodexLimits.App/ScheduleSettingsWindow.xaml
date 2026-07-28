@@ -9,6 +9,7 @@
         ShowInTaskbar="False"
         Background="{StaticResource WindowBackground}"
         Foreground="{StaticResource PrimaryText}"
+        Icon="pack://application:,,,/docs/icon.png"
         FontFamily="Segoe UI">
     <Border Margin="12" Padding="22" CornerRadius="18"
             Background="{StaticResource PanelBackground}"

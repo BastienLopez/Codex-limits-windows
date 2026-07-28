@@ -60,6 +60,23 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public double RemainingValue => _snapshot?.MainLimit.Window.RemainingPercent ?? 0;
     public double RemainingProgress => RemainingValue;
     public string RemainingText => _snapshot is null ? "—" : $"{RemainingValue:0}";
+
+    public double AvailableTodayPercent
+    {
+        get
+        {
+            if (_snapshot is null)
+            {
+                return 0;
+            }
+
+            var cycle = ScheduleMath.GetPlanningCycle(_snapshot.FetchedAt, _settings);
+            return CalculateAvailableToday(
+                _snapshot.MainLimit.Window.RemainingPercent,
+                _snapshot.FetchedAt,
+                cycle);
+        }
+    }
     public string UsedValueText => _snapshot is null ? "—" : $"{100 - RemainingValue:0}";
     public string UsedText => _snapshot is null
         ? L("En attente des données", "Waiting for data")
@@ -70,10 +87,10 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public string SettingsTooltip => L("Paramètres", "Settings");
     public string RefreshTooltip => L("Actualiser maintenant", "Refresh now");
     public string ConsumptionTitle => L("Consommation", "Usage");
-    public string LegendTarget => L("• Cible", "• Target");
-    public string LegendActual => L("• Réel", "• Actual");
-    public string LegendProjection => L("• Projection", "• Projection");
-    public string LegendHistorical => L("• Historique", "• Historical");
+    public string LegendTarget => L("Cible", "Target");
+    public string LegendActual => L("Réel", "Actual");
+    public string LegendProjection => L("Projection", "Projection");
+    public string LegendHistorical => L("Historique", "Historical");
     public string ModifyLabel => L("Modifier", "Edit");
     public string ResetLabel => L("Reset", "Reset");
     public string ExhaustionLabel => L("Épuisement estimé", "Estimated exhaustion");
@@ -360,6 +377,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public void UpdateClock()
     {
         OnPropertyChanged(nameof(UpdatedText));
+        OnPropertyChanged(nameof(AvailableTodayPercent));
         NotifyScheduleProperties();
         NotifyForecastProperties();
     }
@@ -475,6 +493,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(RemainingValue));
         OnPropertyChanged(nameof(RemainingProgress));
         OnPropertyChanged(nameof(RemainingText));
+        OnPropertyChanged(nameof(AvailableTodayPercent));
         OnPropertyChanged(nameof(UsedValueText));
         OnPropertyChanged(nameof(UsedText));
         OnPropertyChanged(nameof(UpdatedText));

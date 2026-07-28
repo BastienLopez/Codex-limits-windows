@@ -70,8 +70,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public string SettingsTooltip => L("Paramètres", "Settings");
     public string RefreshTooltip => L("Actualiser maintenant", "Refresh now");
     public string ConsumptionTitle => L("Consommation", "Usage");
-    public string LegendTarget => L("• Cible", "• Target");
-    public string LegendActual => L("• Réel", "• Actual");
+    public string LegendTarget => L("Cible", "Target");
+    public string LegendActual => L("Réel", "Actual");
     public string LegendProjection => L("• Projection", "• Projection");
     public string LegendHistorical => L("• Historique", "• Historical");
     public string ModifyLabel => L("Modifier", "Edit");

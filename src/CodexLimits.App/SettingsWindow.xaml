@@ -13,6 +13,7 @@
         Background="{StaticResource WindowBackground}"
         Foreground="{StaticResource PrimaryText}"
         FontFamily="Segoe UI"
+        Icon="pack://application:,,,/docs/icon.png"
         ShowInTaskbar="False">
 
     <Window.Resources>
@@ -31,8 +32,8 @@
             <Setter Property="Height" Value="34" />
             <Setter Property="FontSize" Value="15" />
             <Setter Property="Foreground" Value="White" />
-            <Setter Property="Background" Value="#FF0D141D" />
-            <Setter Property="BorderBrush" Value="#FF324055" />
+            <Setter Property="Background" Value="#FF151515" />
+            <Setter Property="BorderBrush" Value="#FF343434" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Padding" Value="10,2,10,2" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
@@ -41,7 +42,7 @@
 
         <Style x:Key="DarkComboBoxItemStyle" TargetType="ComboBoxItem">
             <Setter Property="Foreground" Value="White" />
-            <Setter Property="Background" Value="#FF0D141D" />
+            <Setter Property="Background" Value="#FF151515" />
             <Setter Property="Padding" Value="10,7" />
             <Setter Property="FontSize" Value="15" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
@@ -53,7 +54,7 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsHighlighted" Value="True">
-                                <Setter TargetName="ItemBorder" Property="Background" Value="#FF1A2432" />
+                                <Setter TargetName="ItemBorder" Property="Background" Value="#FF202020" />
                             </Trigger>
                             <Trigger Property="IsSelected" Value="True">
                                 <Setter TargetName="ItemBorder" Property="Background" Value="#FF245FB3" />
@@ -68,8 +69,8 @@
             <Setter Property="Height" Value="34" />
             <Setter Property="FontSize" Value="15" />
             <Setter Property="Foreground" Value="White" />
-            <Setter Property="Background" Value="#FF0D141D" />
-            <Setter Property="BorderBrush" Value="#FF324055" />
+            <Setter Property="Background" Value="#FF151515" />
+            <Setter Property="BorderBrush" Value="#FF343434" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="ItemContainerStyle" Value="{StaticResource DarkComboBoxItemStyle}" />
             <Setter Property="Template">
@@ -117,8 +118,8 @@
                                    PopupAnimation="Fade">
                                 <Border Margin="0,4,0,0"
                                         MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}"
-                                        Background="#FF0D141D"
-                                        BorderBrush="#FF324055"
+                                        Background="#FF151515"
+                                        BorderBrush="#FF343434"
                                         BorderThickness="1">
                                     <ScrollViewer MaxHeight="230">
                                         <StackPanel IsItemsHost="True" />
@@ -140,8 +141,8 @@
         </Style>
 
         <Style x:Key="PlainButtonStyle" TargetType="Button">
-            <Setter Property="Background" Value="#FF0E1520" />
-            <Setter Property="BorderBrush" Value="#FF384455" />
+            <Setter Property="Background" Value="#FF151515" />
+            <Setter Property="BorderBrush" Value="#FF343434" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Foreground" Value="White" />
             <Setter Property="Padding" Value="16,8" />

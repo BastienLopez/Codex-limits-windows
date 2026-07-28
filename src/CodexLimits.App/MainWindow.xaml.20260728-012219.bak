@@ -157,10 +157,10 @@
                            FontWeight="Bold" />
 
                 <WrapPanel Grid.Column="1" VerticalAlignment="Center">
-                    <TextBlock Text="• Cible" Foreground="#FF34C759" Margin="0,0,12,0" FontSize="12" />
-                    <TextBlock Text="• Réel" Foreground="#FF0A84FF" Margin="0,0,12,0" FontSize="12" />
-                    <TextBlock Text="• Projection" Foreground="#FFFF675F" Margin="0,0,12,0" FontSize="12" />
-                    <TextBlock Text="• Historique" Foreground="#FF919196" FontSize="12" />
+                    <TextBlock Text="Cible" Foreground="#FF34C759" Margin="0,0,12,0" FontSize="12" />
+                    <TextBlock Text="Réel" Foreground="#FF0A84FF" Margin="0,0,12,0" FontSize="12" />
+                    <TextBlock Text="Projection" Foreground="#FFFF675F" Margin="0,0,12,0" FontSize="12" />
+                    <TextBlock Text="Historique" Foreground="#FF919196" FontSize="12" />
                 </WrapPanel>
             </Grid>
 
