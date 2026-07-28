@@ -196,7 +196,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
     {
         PaceStatus.SlowDown => L("Risque", "Risk"),
         PaceStatus.OnTrack => L("Dans le rythme", "On track"),
-        PaceStatus.RoomToUseMore => L("Marge disponible", "Room available"),
+        PaceStatus.RoomToUseMore => L("Tu peux utiliser davantage", "Room to use more"),
         _ => L("Apprentissage", "Learning")
     };
 
@@ -217,70 +217,25 @@ public sealed class MainViewModel : INotifyPropertyChanged
                 return L("Collecte des premières données…", "Collecting initial data…");
             }
 
-            return BuildQuotaSummaryMessage(
-                _snapshot.MainLimit.Window,
-                _forecast,
-                _snapshot.FetchedAt);
-        }
-    }
+            var window = _snapshot.MainLimit.Window;
+            var cycle = ScheduleMath.GetPlanningCycle(_snapshot.FetchedAt, _settings);
+            var planningEnd = cycle.LastOrDefault()?.End;
+            var endLabel = planningEnd is { } end
+                ? FormatDate(end.ToLocalTime())
+                : L("la fin du planning", "the end of the schedule");
 
-    private string BuildQuotaSummaryMessage(
-        UsageWindow window,
-        Forecast forecast,
-        DateTimeOffset reference)
-    {
-        var cycle = ScheduleMath.GetPlanningCycle(reference, _settings);
-        var planningEnd = cycle.LastOrDefault()?.End;
-
-        var endLabel = planningEnd is { } end
-            ? FormatScheduleEnd(end.ToLocalTime())
-            : L("fin du planning", "end of the schedule");
-
-        var availableToday = CalculateAvailableToday(
-            window.RemainingPercent,
-            reference,
-            cycle);
-
-        return L(
-            $"Aujourd'hui : encore {availableToday:0} % utilisables pour rester sur la cible.\n{UppercaseFirst(endLabel)} : environ {forecast.ExpectedRemainingAtReset:0} % restants au rythme actuel.",
-            $"Today: {availableToday:0}% still available while staying on target.\n{UppercaseFirst(endLabel)}: about {forecast.ExpectedRemainingAtReset:0}% remaining at the current pace.");
-    }
-
-    private double CalculateAvailableToday(
-        double remainingPercent,
-        DateTimeOffset reference,
-        IReadOnlyList<TimeRange> cycle)
-    {
-        if (cycle.Count == 0)
-        {
-            return 0;
-        }
-
-        var today = reference.ToLocalTime().Date;
-        var todayIndex = -1;
-
-        for (var index = 0; index < cycle.Count; index++)
-        {
-            if (cycle[index].Start.ToLocalTime().Date == today)
+            return _forecast.Status switch
             {
-                todayIndex = index;
-                break;
-            }
+                PaceStatus.SlowDown => BuildSlowDownMessage(window, _forecast),
+                PaceStatus.OnTrack => L(
+                    $"À ce rythme, il resterait environ {_forecast.ExpectedRemainingAtReset:0} % à {endLabel}.",
+                    $"At this pace, about {_forecast.ExpectedRemainingAtReset:0}% would remain by {endLabel}."),
+                PaceStatus.RoomToUseMore => L(
+                    $"Tu peux utiliser environ {Math.Max(_forecast.ExpectedRemainingAtReset - _settings.SafetyBuffer, 0):0} % de plus d’ici {endLabel}.",
+                    $"You can use about {Math.Max(_forecast.ExpectedRemainingAtReset - _settings.SafetyBuffer, 0):0}% more by {endLabel}."),
+                _ => L("Collecte des premières données…", "Collecting initial data…")
+            };
         }
-
-        if (todayIndex < 0 || reference >= cycle[todayIndex].End)
-        {
-            return 0;
-        }
-
-        var dailyTarget = (100d - _settings.SafetyBuffer) / cycle.Count;
-        var targetRemainingAtEndOfToday = Math.Max(
-            100d - dailyTarget * (todayIndex + 1),
-            _settings.SafetyBuffer);
-
-        return Math.Max(
-            remainingPercent - targetRemainingAtEndOfToday,
-            0);
     }
 
     public async Task StartAsync(CancellationToken cancellationToken = default)
@@ -432,15 +387,6 @@ public sealed class MainViewModel : INotifyPropertyChanged
                 $"À ce rythme, le quota pourrait être épuisé {Math.Max((int)Math.Round(activeHoursEarly), 1)} heure(s) active(s) trop tôt.",
                 $"At this pace, the quota could run out {Math.Max((int)Math.Round(activeHoursEarly), 1)} active hour(s) too early.");
     }
-
-    private string FormatScheduleEnd(DateTimeOffset value) => UiText.IsEnglish(_settings.Language)
-        ? value.ToString("dddd 'at' HH:mm", Culture)
-        : value.ToString("dddd 'à' HH:mm", Culture);
-
-    private string UppercaseFirst(string value) =>
-        string.IsNullOrEmpty(value)
-            ? value
-            : char.ToUpper(value[0], Culture) + value[1..];
 
     private string RelativeTime(DateTimeOffset timestamp)
     {

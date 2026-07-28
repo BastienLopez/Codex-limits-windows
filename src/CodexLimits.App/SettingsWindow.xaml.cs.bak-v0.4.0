@@ -13,9 +13,7 @@ public partial class SettingsWindow : Window
     public SettingsWindow(AppSettings settings)
     {
         _isInitializing = true;
-        var normalized = settings.Normalize();
-        _language = normalized.Language;
-
+        _language = settings.Normalize().Language;
         InitializeComponent();
 
         LanguageCombo.ItemsSource = new[]
@@ -25,16 +23,13 @@ public partial class SettingsWindow : Window
         };
         LanguageCombo.SelectedValue = _language;
 
-        PopulateDayOptions(normalized.StartDay, normalized.EndDay);
-
-        StartTimeBox.Text = normalized.StartTime.ToString(@"hh\:mm", CultureInfo.InvariantCulture);
-        EndTimeBox.Text = normalized.EndTime.ToString(@"hh\:mm", CultureInfo.InvariantCulture);
-
+        PopulateDayOptions(settings.StartDay, settings.EndDay);
+        StartTimeBox.Text = settings.StartTime.ToString("hh\\:mm", CultureInfo.InvariantCulture);
+        EndTimeBox.Text = settings.EndTime.ToString("hh\\:mm", CultureInfo.InvariantCulture);
         RefreshIntervalCombo.ItemsSource = new[] { 15, 30, 60, 120 };
-        RefreshIntervalCombo.SelectedItem = normalized.RefreshIntervalMinutes;
-
-        SafetyBufferBox.Text = normalized.SafetyBuffer.ToString("0.#", UiText.Culture(_language));
-        PauseOutsideCheckBox.IsChecked = normalized.PauseRefreshOutsideSchedule;
+        RefreshIntervalCombo.Text = settings.RefreshIntervalMinutes.ToString(CultureInfo.InvariantCulture);
+        SafetyBufferBox.Text = settings.SafetyBuffer.ToString("0.#", UiText.Culture(_language));
+        PauseOutsideCheckBox.IsChecked = settings.PauseRefreshOutsideSchedule;
 
         ApplyLanguage();
         _isInitializing = false;
@@ -42,33 +37,21 @@ public partial class SettingsWindow : Window
 
     public AppSettings? ResultSettings { get; private set; }
 
-    private string L(string french, string english) =>
-        UiText.Get(_language, french, english);
+    private string L(string french, string english) => UiText.Get(_language, french, english);
 
     private void LanguageCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (LanguageCombo.SelectedValue is not string language)
-        {
-            return;
-        }
+        if (LanguageCombo.SelectedValue is not string language) return;
 
-        var startDay = StartDayCombo.SelectedValue is DayOfWeek selectedStart
-            ? selectedStart
-            : DayOfWeek.Monday;
-
-        var endDay = EndDayCombo.SelectedValue is DayOfWeek selectedEnd
-            ? selectedEnd
-            : DayOfWeek.Friday;
-
+        var startDay = StartDayCombo.SelectedValue is DayOfWeek selectedStart ? selectedStart : DayOfWeek.Monday;
+        var endDay = EndDayCombo.SelectedValue is DayOfWeek selectedEnd ? selectedEnd : DayOfWeek.Friday;
         _language = language;
 
-        if (_isInitializing)
+        if (!_isInitializing)
         {
-            return;
+            PopulateDayOptions(startDay, endDay);
+            ApplyLanguage();
         }
-
-        PopulateDayOptions(startDay, endDay);
-        ApplyLanguage();
     }
 
     private void PopulateDayOptions(DayOfWeek startDay, DayOfWeek endDay)
@@ -89,18 +72,17 @@ public partial class SettingsWindow : Window
         Title = L("Paramètres", "Settings");
         TitleText.Text = L("Paramètres", "Settings");
         SubtitleText.Text = L(
-            "Planning de travail, actualisation et réserve.",
-            "Work schedule, refresh and reserve.");
-
+            "Planning, réserve et fréquence d’actualisation.",
+            "Schedule, reserve and refresh frequency.");
         LanguageLabel.Text = L("Langue", "Language");
-        StartLabel.Text = L("Premier jour travaillé", "First workday");
-        EndLabel.Text = L("Dernier jour travaillé", "Last workday");
-        StartTimeLabel.Text = L("Début", "Start");
-        EndTimeLabel.Text = L("Fin", "End");
+        StartLabel.Text = L("Début", "Start");
+        EndLabel.Text = L("Fin", "End");
+        StartTimeLabel.Text = L("Heure", "Time");
+        EndTimeLabel.Text = L("Heure", "Time");
         RefreshLabel.Text = L("Actualisation automatique", "Automatic refresh");
         RefreshHintText.Text = L("Intervalle en minutes", "Interval in minutes");
         ReserveLabel.Text = L("Réserve de sécurité", "Safety reserve");
-        ReserveHintText.Text = L("Quota à préserver", "Quota to preserve");
+        ReserveHintText.Text = L("Pourcentage à conserver", "Percentage to keep");
         PauseOutsideCheckBox.Content = L(
             "Suspendre l’actualisation automatique hors créneau",
             "Pause automatic refresh outside the schedule");
@@ -122,16 +104,8 @@ public partial class SettingsWindow : Window
             return;
         }
 
-        if (!TimeSpan.TryParseExact(
-                StartTimeBox.Text.Trim(),
-                @"hh\:mm",
-                CultureInfo.InvariantCulture,
-                out var startTime) ||
-            !TimeSpan.TryParseExact(
-                EndTimeBox.Text.Trim(),
-                @"hh\:mm",
-                CultureInfo.InvariantCulture,
-                out var endTime))
+        if (!TimeSpan.TryParseExact(StartTimeBox.Text.Trim(), "hh\\:mm", CultureInfo.InvariantCulture, out var startTime) ||
+            !TimeSpan.TryParseExact(EndTimeBox.Text.Trim(), "hh\\:mm", CultureInfo.InvariantCulture, out var endTime))
         {
             ValidationText.Text = L(
                 "Les heures doivent utiliser le format HH:mm, par exemple 09:00.",
@@ -139,13 +113,16 @@ public partial class SettingsWindow : Window
             return;
         }
 
-        var refreshText = (RefreshIntervalCombo.SelectedItem?.ToString() ?? RefreshIntervalCombo.Text).Trim();
-        if (!int.TryParse(
-                refreshText,
-                NumberStyles.Integer,
-                CultureInfo.InvariantCulture,
-                out var refreshInterval) ||
-            refreshInterval is < 5 or > 240)
+        if (startDay == endDay && startTime == endTime)
+        {
+            ValidationText.Text = L(
+                "Le début et la fin du créneau ne peuvent pas être identiques.",
+                "The schedule start and end cannot be identical.");
+            return;
+        }
+
+        if (!int.TryParse(RefreshIntervalCombo.Text.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var interval) ||
+            interval is < 5 or > 240)
         {
             ValidationText.Text = L(
                 "L’intervalle doit être compris entre 5 et 240 minutes.",
@@ -154,16 +131,8 @@ public partial class SettingsWindow : Window
         }
 
         var culture = UiText.Culture(_language);
-        if (!double.TryParse(
-                SafetyBufferBox.Text.Trim(),
-                NumberStyles.Number,
-                culture,
-                out var safetyBuffer) &&
-            !double.TryParse(
-                SafetyBufferBox.Text.Trim(),
-                NumberStyles.Number,
-                CultureInfo.InvariantCulture,
-                out safetyBuffer))
+        if (!double.TryParse(SafetyBufferBox.Text.Trim(), NumberStyles.Number, culture, out var safetyBuffer) &&
+            !double.TryParse(SafetyBufferBox.Text.Trim(), NumberStyles.Number, CultureInfo.InvariantCulture, out safetyBuffer))
         {
             ValidationText.Text = L(
                 "La réserve doit être un nombre compris entre 0 et 30.",
@@ -185,7 +154,7 @@ public partial class SettingsWindow : Window
             StartTime = startTime,
             EndDay = endDay,
             EndTime = endTime,
-            RefreshIntervalMinutes = refreshInterval,
+            RefreshIntervalMinutes = interval,
             PauseRefreshOutsideSchedule = PauseOutsideCheckBox.IsChecked == true,
             SafetyBuffer = safetyBuffer,
             Language = _language
@@ -194,9 +163,8 @@ public partial class SettingsWindow : Window
         DialogResult = true;
     }
 
-    private void CancelButton_Click(object sender, RoutedEventArgs e) =>
-        DialogResult = false;
+    private void CancelButton_Click(object sender, RoutedEventArgs e) => DialogResult = false;
 
-    public sealed record DayOption(DayOfWeek Value, string Label);
-    public sealed record LanguageOption(string Value, string Label);
+    private sealed record DayOption(DayOfWeek Value, string Label);
+    private sealed record LanguageOption(string Value, string Label);
 }

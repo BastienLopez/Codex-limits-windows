@@ -27,6 +27,59 @@ public static class ScheduleMath
         return instant < candidate.Start ? candidate.Start : instant;
     }
 
+    public static IReadOnlyList<TimeRange> GetCurrentCycleIntervals(
+        DateTimeOffset reference,
+        AppSettings settings)
+    {
+        var normalized = settings.Normalize();
+        var referenceDate = reference.ToLocalTime().Date;
+        var startIndex = MondayBasedIndex(normalized.StartDay);
+        var endIndex = MondayBasedIndex(normalized.EndDay);
+        var referenceIndex = MondayBasedIndex(referenceDate.DayOfWeek);
+        var daysSinceStart = (referenceIndex - startIndex + 7) % 7;
+        var cycleStartDate = referenceDate.AddDays(-daysSinceStart);
+        var dayCount = ((endIndex - startIndex + 7) % 7) + 1;
+        var intervals = new List<TimeRange>(dayCount);
+
+        for (var offset = 0; offset < dayCount; offset++)
+        {
+            var localDate = cycleStartDate.AddDays(offset);
+            var startLocal = localDate.Add(normalized.StartTime);
+            var endLocal = localDate.Add(normalized.EndTime);
+            if (endLocal <= startLocal)
+            {
+                endLocal = endLocal.AddDays(1);
+            }
+
+            intervals.Add(new TimeRange(ToLocalOffset(startLocal), ToLocalOffset(endLocal)));
+        }
+
+        return intervals;
+    }
+
+
+    public static IReadOnlyList<TimeRange> GetPlanningCycle(
+        DateTimeOffset reference,
+        AppSettings settings) =>
+        GetCurrentCycleIntervals(reference, settings);
+
+    public static double GetActiveHours(
+        IReadOnlyList<TimeRange> intervals,
+        DateTimeOffset rangeStart,
+        DateTimeOffset rangeEnd) =>
+        intervals.Sum(interval =>
+        {
+            var start = interval.Start > rangeStart ? interval.Start : rangeStart;
+            var end = interval.End < rangeEnd ? interval.End : rangeEnd;
+            return end > start ? (end - start).TotalHours : 0;
+        });
+
+    public static DateTimeOffset GetCurrentCycleStart(DateTimeOffset reference, AppSettings settings) =>
+        GetCurrentCycleIntervals(reference, settings)[0].Start;
+
+    public static DateTimeOffset GetCurrentCycleEnd(DateTimeOffset reference, AppSettings settings) =>
+        GetCurrentCycleIntervals(reference, settings)[^1].End;
+
     public static IReadOnlyList<TimeRange> GetIntervals(
         DateTimeOffset rangeStart,
         DateTimeOffset rangeEnd,
@@ -63,9 +116,7 @@ public static class ScheduleMath
             }
         }
 
-        return intervals
-            .OrderBy(interval => interval.Start)
-            .ToArray();
+        return intervals.OrderBy(interval => interval.Start).ToArray();
     }
 
     public static IReadOnlyList<TimeRange> GetInactiveIntervals(
@@ -150,8 +201,7 @@ public static class ScheduleMath
         DateTimeOffset rangeStart,
         DateTimeOffset rangeEnd,
         AppSettings settings) =>
-        GetIntervals(rangeStart, rangeEnd, settings)
-            .LastOrDefault()?.End;
+        GetIntervals(rangeStart, rangeEnd, settings).LastOrDefault()?.End;
 
     private static bool IsSelectedDay(DayOfWeek day, DayOfWeek startDay, DayOfWeek endDay)
     {

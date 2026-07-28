@@ -1,0 +1,330 @@
+using System.Globalization;
+using CodexLimits.Core;
+using Brush = System.Windows.Media.Brush;
+using Brushes = System.Windows.Media.Brushes;
+using Color = System.Windows.Media.Color;
+using FlowDirection = System.Windows.FlowDirection;
+using Pen = System.Windows.Media.Pen;
+using Point = System.Windows.Point;
+
+namespace CodexLimits.App.Controls;
+
+public sealed class BurnDownChartControl : System.Windows.FrameworkElement
+{
+    private static readonly Pen GridPen = CreatePen(Color.FromRgb(43, 49, 57), 1, new System.Windows.Media.DoubleCollection { 2, 3 });
+    private static readonly Pen DayBoundaryPen = CreatePen(Color.FromRgb(55, 63, 74), 1);
+    private static readonly Pen TargetPen = CreatePen(Color.FromRgb(52, 199, 89), 1.7, new System.Windows.Media.DoubleCollection { 4, 3 });
+    private static readonly Pen ActualPen = CreatePen(Color.FromRgb(10, 132, 255), 2.4);
+    private static readonly Pen HistoricalPen = CreatePen(Color.FromRgb(145, 145, 150), 1.6, new System.Windows.Media.DoubleCollection { 2, 3 });
+    private static readonly Pen NowPen = CreatePen(Color.FromRgb(205, 212, 223), 1, new System.Windows.Media.DoubleCollection { 2, 3 });
+    private static readonly Pen WorkTickPen = CreatePen(Color.FromRgb(125, 132, 144), 1);
+    private static readonly Brush AxisBrush = new System.Windows.Media.SolidColorBrush(Color.FromRgb(151, 160, 172));
+    private static readonly Brush ActiveAxisBrush = Brushes.White;
+
+    public ChartState? Data { get; set; }
+    public string UiLanguage { get; set; } = "fr";
+
+    protected override void OnRender(System.Windows.Media.DrawingContext drawingContext)
+    {
+        base.OnRender(drawingContext);
+
+        drawingContext.DrawRoundedRectangle(
+            new System.Windows.Media.SolidColorBrush(Color.FromRgb(12, 15, 19)),
+            null,
+            new System.Windows.Rect(RenderSize),
+            10,
+            10);
+
+        if (Data is null || ActualWidth < 140 || ActualHeight < 120)
+        {
+            DrawText(drawingContext, UiText.Get(UiLanguage, "Aucune donnée", "No data"), 12, new Point(14, 14), AxisBrush);
+            return;
+        }
+
+        var activeIntervals = BuildActiveIntervals(Data.Window.StartsAt, Data.Window.ResetsAt, Data.InactivePeriods);
+
+        if (activeIntervals.Count == 0)
+        {
+            activeIntervals.Add(new TimeRange(Data.Window.StartsAt, Data.Window.ResetsAt));
+        }
+
+        const double left = 54;
+        const double top = 24;
+        const double right = 16;
+        const double bottom = 42;
+
+        var plot = new System.Windows.Rect(
+            left,
+            top,
+            Math.Max(ActualWidth - left - right, 1),
+            Math.Max(ActualHeight - top - bottom, 1));
+
+        for (var percent = 0; percent <= 100; percent += 25)
+        {
+            var y = MapY(percent, plot);
+            drawingContext.DrawLine(GridPen, new Point(plot.Left, y), new Point(plot.Right, y));
+            DrawText(drawingContext, $"{percent}%", 10, new Point(4, y - 7), AxisBrush);
+        }
+
+        DrawDayStructure(drawingContext, plot, activeIntervals);
+
+        DrawSeries(drawingContext, Data.Target, activeIntervals, plot, TargetPen, step: true);
+        DrawSeries(drawingContext, Data.Actual, activeIntervals, plot, ActualPen, step: true);
+
+        var currentColor = Data.CurrentProjection.LastOrDefault()?.RemainingPercent <= 0
+            ? Color.FromRgb(255, 103, 95)
+            : Color.FromRgb(103, 166, 255);
+
+        var currentPen = CreatePen(currentColor, 2.5, new System.Windows.Media.DoubleCollection { 7, 3 });
+
+        DrawSeries(drawingContext, Data.CurrentProjection, activeIntervals, plot, currentPen, step: true);
+        DrawSeries(drawingContext, Data.HistoricalProjection, activeIntervals, plot, HistoricalPen, step: true);
+
+        var nowX = MapX(Data.Now, activeIntervals, plot);
+        drawingContext.DrawLine(NowPen, new Point(nowX, plot.Top), new Point(nowX, plot.Bottom));
+
+        var nowText = CreateText(UiText.Get(UiLanguage, "maintenant", "now"), 10, ActiveAxisBrush);
+        drawingContext.DrawText(
+            nowText,
+            new Point(Math.Clamp(nowX - nowText.Width / 2, plot.Left, plot.Right - nowText.Width), plot.Top - 18));
+
+        DrawPoint(
+            drawingContext,
+            new ChartPoint(Data.Now, Data.Actual.LastOrDefault()?.RemainingPercent ?? 0),
+            activeIntervals,
+            plot,
+            new System.Windows.Media.SolidColorBrush(currentColor));
+    }
+
+    private void DrawDayStructure(
+        System.Windows.Media.DrawingContext drawingContext,
+        System.Windows.Rect plot,
+        IReadOnlyList<TimeRange> activeIntervals)
+    {
+        for (var i = 0; i < activeIntervals.Count; i++)
+        {
+            var interval = activeIntervals[i];
+            var startX = MapX(interval.Start, activeIntervals, plot);
+            var endX = MapX(interval.End, activeIntervals, plot);
+            var centerX = (startX + endX) / 2d;
+
+            drawingContext.DrawLine(DayBoundaryPen, new Point(startX, plot.Top), new Point(startX, plot.Bottom));
+            if (i == activeIntervals.Count - 1)
+            {
+                drawingContext.DrawLine(DayBoundaryPen, new Point(endX, plot.Top), new Point(endX, plot.Bottom));
+            }
+
+            DrawWorkTick(drawingContext, startX, plot);
+            DrawWorkTick(drawingContext, endX, plot);
+
+            var dayDate = interval.Start.ToLocalTime().Date;
+            var label = FormatDayLabel(dayDate);
+            var text = CreateText(label, 10, AxisBrush);
+
+            drawingContext.DrawText(
+                text,
+                new Point(
+                    Math.Clamp(centerX - text.Width / 2, plot.Left, plot.Right - text.Width),
+                    plot.Bottom + 10));
+        }
+    }
+
+    private static List<TimeRange> BuildActiveIntervals(
+        DateTimeOffset windowStart,
+        DateTimeOffset windowEnd,
+        IReadOnlyList<TimeRange> inactivePeriods)
+    {
+        var result = new List<TimeRange>();
+        var cursor = windowStart;
+
+        foreach (var inactive in inactivePeriods.OrderBy(x => x.Start))
+        {
+            if (inactive.End <= cursor)
+            {
+                continue;
+            }
+
+            if (inactive.Start > cursor)
+            {
+                var activeStart = cursor;
+                var activeEnd = inactive.Start < windowEnd ? inactive.Start : windowEnd;
+
+                if (activeEnd > activeStart)
+                {
+                    result.Add(new TimeRange(activeStart, activeEnd));
+                }
+            }
+
+            if (inactive.End > cursor)
+            {
+                cursor = inactive.End;
+            }
+
+            if (cursor >= windowEnd)
+            {
+                break;
+            }
+        }
+
+        if (cursor < windowEnd)
+        {
+            result.Add(new TimeRange(cursor, windowEnd));
+        }
+
+        return result.Where(x => x.End > x.Start).ToList();
+    }
+
+    private string FormatDayLabel(DateTime day)
+    {
+        var abbr = day.DayOfWeek switch
+        {
+            DayOfWeek.Monday => UiLanguage == "fr" ? "lun." : "Mon",
+            DayOfWeek.Tuesday => UiLanguage == "fr" ? "mar." : "Tue",
+            DayOfWeek.Wednesday => UiLanguage == "fr" ? "mer." : "Wed",
+            DayOfWeek.Thursday => UiLanguage == "fr" ? "jeu." : "Thu",
+            DayOfWeek.Friday => UiLanguage == "fr" ? "ven." : "Fri",
+            DayOfWeek.Saturday => UiLanguage == "fr" ? "sam." : "Sat",
+            DayOfWeek.Sunday => UiLanguage == "fr" ? "dim." : "Sun",
+            _ => day.ToString("ddd", CultureInfo.InvariantCulture)
+        };
+
+        return $"{abbr} {day.Day}";
+    }
+
+    private static void DrawSeries(
+        System.Windows.Media.DrawingContext context,
+        IReadOnlyList<ChartPoint> points,
+        IReadOnlyList<TimeRange> activeIntervals,
+        System.Windows.Rect plot,
+        Pen pen,
+        bool step)
+    {
+        var filtered = points
+            .Where(p => p.Time <= activeIntervals.Last().End)
+            .ToList();
+
+        if (filtered.Count < 2)
+        {
+            return;
+        }
+
+        var geometry = new System.Windows.Media.StreamGeometry();
+        using (var writer = geometry.Open())
+        {
+            var first = filtered[0];
+            writer.BeginFigure(new Point(MapX(first.Time, activeIntervals, plot), MapY(first.RemainingPercent, plot)), false, false);
+
+            for (var index = 1; index < filtered.Count; index++)
+            {
+                var previous = filtered[index - 1];
+                var current = filtered[index];
+
+                if (step)
+                {
+                    writer.LineTo(new Point(MapX(current.Time, activeIntervals, plot), MapY(previous.RemainingPercent, plot)), true, false);
+                }
+
+                writer.LineTo(new Point(MapX(current.Time, activeIntervals, plot), MapY(current.RemainingPercent, plot)), true, false);
+            }
+        }
+
+        geometry.Freeze();
+        context.DrawGeometry(null, pen, geometry);
+    }
+
+    private static void DrawPoint(
+        System.Windows.Media.DrawingContext context,
+        ChartPoint point,
+        IReadOnlyList<TimeRange> activeIntervals,
+        System.Windows.Rect plot,
+        Brush brush)
+    {
+        context.DrawEllipse(
+            brush,
+            new Pen(Brushes.White, 1),
+            new Point(MapX(point.Time, activeIntervals, plot), MapY(point.RemainingPercent, plot)),
+            4.8,
+            4.8);
+    }
+
+    private static void DrawWorkTick(
+        System.Windows.Media.DrawingContext context,
+        double x,
+        System.Windows.Rect plot)
+    {
+        context.DrawLine(WorkTickPen, new Point(x, plot.Top), new Point(x, plot.Top + 8));
+        context.DrawLine(WorkTickPen, new Point(x, plot.Bottom - 8), new Point(x, plot.Bottom));
+    }
+
+    private static double MapX(
+        DateTimeOffset time,
+        IReadOnlyList<TimeRange> activeIntervals,
+        System.Windows.Rect plot)
+    {
+        var elapsed = 0d;
+        var total = activeIntervals.Sum(i => (i.End - i.Start).TotalSeconds);
+
+        if (total <= 0)
+        {
+            return plot.Left;
+        }
+
+        foreach (var interval in activeIntervals)
+        {
+            var duration = (interval.End - interval.Start).TotalSeconds;
+
+            if (time <= interval.Start)
+            {
+                break;
+            }
+
+            if (time < interval.End)
+            {
+                elapsed += (time - interval.Start).TotalSeconds;
+                break;
+            }
+
+            elapsed += duration;
+        }
+
+        var fraction = Math.Clamp(elapsed / total, 0, 1);
+        return plot.Left + fraction * plot.Width;
+    }
+
+    private static double MapY(double percent, System.Windows.Rect plot) =>
+        plot.Bottom - Math.Clamp(percent, 0, 100) / 100d * plot.Height;
+
+    private static Pen CreatePen(Color color, double thickness, System.Windows.Media.DoubleCollection? dash = null)
+    {
+        var pen = new Pen(new System.Windows.Media.SolidColorBrush(color), thickness);
+        if (dash is not null)
+        {
+            pen.DashStyle = new System.Windows.Media.DashStyle(dash, 0);
+        }
+
+        pen.Freeze();
+        return pen;
+    }
+
+    private void DrawText(
+        System.Windows.Media.DrawingContext context,
+        string text,
+        double size,
+        Point point,
+        Brush brush)
+    {
+        context.DrawText(CreateText(text, size, brush), point);
+    }
+
+    private System.Windows.Media.FormattedText CreateText(string text, double size, Brush brush) =>
+        new(
+            text,
+            UiText.Culture(UiLanguage),
+            FlowDirection.LeftToRight,
+            new System.Windows.Media.Typeface("Segoe UI"),
+            size,
+            brush,
+            1.0);
+
+
+}

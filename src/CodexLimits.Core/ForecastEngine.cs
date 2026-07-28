@@ -2,7 +2,7 @@ namespace CodexLimits.Core;
 
 /// <summary>
 /// Forecasting model adapted from the MIT-licensed thrr87/codex-limits project.
-/// Rates are calculated only across the configured active weekly schedule.
+/// Rates are calculated only across the configured active work cycle.
 /// </summary>
 public static class ForecastEngine
 {
@@ -16,37 +16,63 @@ public static class ForecastEngine
         AppSettings settings)
     {
         var normalized = settings.Normalize();
-        var activeHoursLeft = ScheduleMath.GetActiveHours(now, window.ResetsAt, normalized);
-        var activeDaysLeft = ScheduleMath.GetActiveWorkDays(now, window.ResetsAt, normalized);
+        var cycleIntervals = ScheduleMath.GetCurrentCycleIntervals(now, normalized);
+        if (cycleIntervals.Count == 0)
+        {
+            return new Forecast(
+                PaceStatus.OnTrack,
+                window.RemainingPercent,
+                window.RemainingPercent,
+                window.RemainingPercent,
+                0,
+                0,
+                0,
+                0,
+                0,
+                null);
+        }
+
+        var cycleStart = cycleIntervals[0].Start;
+        var cycleEnd = cycleIntervals[^1].End;
+        var effectiveCycleStart = window.StartsAt > cycleStart ? window.StartsAt : cycleStart;
+        var dailyHours = ScheduleMath.GetNominalDailyHours(normalized);
+
+        var activeHoursLeft = cycleIntervals
+            .Sum(interval => ActiveOverlapHours(interval, now, cycleEnd));
+        var activeDaysLeft = activeHoursLeft / dailyHours;
+
+        var elapsedActiveHours = cycleIntervals
+            .Sum(interval => ActiveOverlapHours(interval, effectiveCycleStart, now));
+        var elapsedActiveDays = elapsedActiveHours / dailyHours;
+
         var currentSamples = samples
-            .Where(sample => sample.ResetsAt == window.ResetsAt && sample.ObservedAt <= now)
+            .Where(sample =>
+                sample.ResetsAt == window.ResetsAt &&
+                sample.ObservedAt >= effectiveCycleStart &&
+                sample.ObservedAt <= now)
             .OrderBy(sample => sample.ObservedAt)
             .ToArray();
 
-        var elapsedActiveDays = ScheduleMath.GetActiveWorkDays(window.StartsAt, now, normalized);
-        var windowRate = elapsedActiveDays > 1d / 96d
-            ? Math.Max((100 - window.RemainingPercent) / elapsedActiveDays, 0)
-            : 0;
+        var usedPercent = Math.Clamp(100 - window.RemainingPercent, 0, 100);
+        var stableElapsedDays = Math.Max(elapsedActiveDays, 1d);
+        var cycleRate = usedPercent / stableElapsedDays;
 
-        double recentRate;
-        if (currentSamples.Length > 1 && currentSamples[^1].ObservedAt > currentSamples[0].ObservedAt)
+        var currentRate = cycleRate;
+        if (currentSamples.Length > 1)
         {
-            var activeDays = ScheduleMath.GetActiveHours(
-                currentSamples[0].ObservedAt,
-                currentSamples[^1].ObservedAt,
-                normalized) / 24d;
-            recentRate = activeDays > 1d / 96d
-                ? Math.Max((currentSamples[0].RemainingPercent - currentSamples[^1].RemainingPercent) / activeDays, 0)
-                : windowRate;
-        }
-        else
-        {
-            recentRate = windowRate;
-        }
+            var first = currentSamples[0];
+            var last = currentSamples[^1];
+            var recentDays = ScheduleMath.GetActiveWorkDays(first.ObservedAt, last.ObservedAt, normalized);
 
-        var currentRate = currentSamples.Length > 1
-            ? 0.7 * recentRate + 0.3 * windowRate
-            : windowRate;
+            // A few minutes of activity must not be extrapolated as a full-day burn rate.
+            if (recentDays >= 1d)
+            {
+                var recentRate = Math.Max(
+                    (first.RemainingPercent - last.RemainingPercent) / recentDays,
+                    0);
+                currentRate = 0.65 * recentRate + 0.35 * cycleRate;
+            }
+        }
 
         var historicalRates = samples
             .Where(sample => sample.ResetsAt != window.ResetsAt)
@@ -54,7 +80,7 @@ public static class ForecastEngine
             .Select(group =>
             {
                 var ordered = group.OrderBy(sample => sample.ObservedAt).ToArray();
-                if (ordered.Length < 2 || ordered[^1].ObservedAt <= ordered[0].ObservedAt)
+                if (ordered.Length < 2)
                 {
                     return (double?)null;
                 }
@@ -63,26 +89,27 @@ public static class ForecastEngine
                     ordered[0].ObservedAt,
                     ordered[^1].ObservedAt,
                     normalized);
-                return activeDays > 1d / 96d
-                    ? Math.Max((ordered[0].RemainingPercent - ordered[^1].RemainingPercent) / activeDays, 0)
-                    : null;
+                if (activeDays < 1d)
+                {
+                    return null;
+                }
+
+                return Math.Max(
+                    (ordered[0].RemainingPercent - ordered[^1].RemainingPercent) / activeDays,
+                    0);
             })
             .Where(rate => rate.HasValue)
             .Select(rate => rate!.Value)
             .ToArray();
 
-        double historicalRate;
-        if (historicalRates.Length == 0)
-        {
-            historicalRate = TokenBootstrapRate(window, windowRate, tokenHistory, now) ?? currentRate;
-        }
-        else
-        {
-            historicalRate = historicalRates.Average();
-        }
+        var historicalRate = historicalRates.Length > 0
+            ? historicalRates.Average()
+            : currentRate;
 
-        var expectedRate = 0.75 * currentRate + 0.25 * historicalRate;
-        var safetyRate = Math.Max(currentRate, historicalRate) * 1.2;
+        // The red projection and the status are based on the current cycle only.
+        // Historical data remains a separate grey comparison curve.
+        var expectedRate = currentRate;
+        var safetyRate = currentRate * 1.15;
         var expected = Math.Max(window.RemainingPercent - expectedRate * activeDaysLeft, 0);
         var safety = Math.Max(window.RemainingPercent - safetyRate * activeDaysLeft, 0);
         var historical = Math.Max(window.RemainingPercent - historicalRate * activeDaysLeft, 0);
@@ -91,11 +118,20 @@ public static class ForecastEngine
             : 0;
 
         PaceStatus status;
-        if (safety < safetyBuffer || (previousStatus == PaceStatus.SlowDown && safety < safetyBuffer + 1))
+        if (activeDaysLeft <= 0)
+        {
+            status = PaceStatus.OnTrack;
+        }
+        else if (
+            currentRate > recommended * 1.05 ||
+            expected < safetyBuffer ||
+            (previousStatus == PaceStatus.SlowDown && currentRate > recommended))
         {
             status = PaceStatus.SlowDown;
         }
-        else if (expected > 8 || (previousStatus == PaceStatus.RoomToUseMore && expected > 7))
+        else if (
+            currentRate < recommended * 0.80 &&
+            expected > safetyBuffer + 8)
         {
             status = PaceStatus.RoomToUseMore;
         }
@@ -105,11 +141,10 @@ public static class ForecastEngine
         }
 
         DateTimeOffset? exhaustionAt = null;
-        if (expectedRate > 0)
+        if (currentRate > 0)
         {
-            var hoursPerWorkDay = ScheduleMath.GetNominalDailyHours(normalized);
-            var hoursToEmpty = window.RemainingPercent / expectedRate * hoursPerWorkDay;
-            exhaustionAt = ScheduleMath.AddActiveHours(now, hoursToEmpty, window.ResetsAt, normalized);
+            var hoursToEmpty = window.RemainingPercent / currentRate * dailyHours;
+            exhaustionAt = ScheduleMath.AddActiveHours(now, hoursToEmpty, cycleEnd, normalized);
         }
 
         return new Forecast(
@@ -118,75 +153,20 @@ public static class ForecastEngine
             safety,
             historical,
             recommended,
-            expectedRate,
+            currentRate,
             historicalRate,
             safetyRate,
             activeHoursLeft,
             exhaustionAt);
     }
 
-    private static double? TokenBootstrapRate(
-        UsageWindow window,
-        double windowRate,
-        IReadOnlyList<TokenDay> tokenHistory,
-        DateTimeOffset now)
+    private static double ActiveOverlapHours(
+        TimeRange interval,
+        DateTimeOffset rangeStart,
+        DateTimeOffset rangeEnd)
     {
-        static int DayNumber(DateTimeOffset value) =>
-            (int)Math.Floor(value.ToUnixTimeSeconds() / 86_400d);
-
-        var start = DayNumber(window.StartsAt);
-        var today = DayNumber(now);
-        var buckets = tokenHistory
-            .GroupBy(day => DayNumber(day.Date))
-            .ToDictionary(group => group.Key, group => group.Sum(item => item.Tokens));
-
-        if (buckets.Count == 0 || windowRate <= 0)
-        {
-            return null;
-        }
-
-        var first = buckets.Keys.Min();
-        var latestCandidates = buckets.Keys.Where(day => day < today).ToArray();
-        if (latestCandidates.Length == 0)
-        {
-            return null;
-        }
-
-        var latest = latestCandidates.Max();
-        if (latest < start)
-        {
-            return null;
-        }
-
-        var currentCount = latest - start + 1;
-        long currentTokens = 0;
-        for (var day = start; day <= latest; day++)
-        {
-            currentTokens += buckets.GetValueOrDefault(day);
-        }
-
-        var historyEnd = start - 1;
-        var historyStart = Math.Max(first, historyEnd - 27);
-        if (historyStart > historyEnd || currentTokens <= 0)
-        {
-            return null;
-        }
-
-        var historyCount = historyEnd - historyStart + 1;
-        long historyTokens = 0;
-        for (var day = historyStart; day <= historyEnd; day++)
-        {
-            historyTokens += buckets.GetValueOrDefault(day);
-        }
-
-        var currentAverage = (double)currentTokens / currentCount;
-        var historicalAverage = (double)historyTokens / historyCount;
-        if (currentAverage <= 0 || historicalAverage <= 0)
-        {
-            return null;
-        }
-
-        var relativePace = Math.Clamp(historicalAverage / currentAverage, 0.25, 4);
-        return windowRate * relativePace;
+        var start = interval.Start > rangeStart ? interval.Start : rangeStart;
+        var end = interval.End < rangeEnd ? interval.End : rangeEnd;
+        return end > start ? (end - start).TotalHours : 0;
     }
 }

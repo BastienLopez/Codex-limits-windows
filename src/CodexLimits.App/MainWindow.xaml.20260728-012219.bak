@@ -40,20 +40,20 @@
 
             <TextBlock Grid.Column="0"
                        Text="Codex Limits"
-                       FontSize="22"
+                       FontSize="24"
                        FontWeight="Bold"
                        VerticalAlignment="Center" />
 
-            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0,0,0">
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="18,0,0,0">
                 <TextBlock Text="{Binding RemainingText}" FontSize="17" FontWeight="Bold" />
-                <TextBlock Text="{Binding RemainingLabel}" Margin="4,2,0,0" Foreground="{StaticResource SecondaryText}" FontSize="12" />
+                <TextBlock Text=" % restant" Margin="4,2,0,0" Foreground="{StaticResource SecondaryText}" FontSize="12" />
             </StackPanel>
 
-            <Border Grid.Column="2" Width="1" Height="24" Background="#FF243044" Margin="10,0,0,0" VerticalAlignment="Center" />
+            <Border Grid.Column="2" Width="1" Height="24" Background="#FF243044" Margin="14,0,0,0" VerticalAlignment="Center" />
 
-            <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0,0,0">
+            <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center" Margin="14,0,0,0">
                 <TextBlock Text="{Binding UsedValueText}" FontSize="17" FontWeight="Bold" />
-                <TextBlock Text="{Binding UsedLabel}" Margin="4,2,0,0" Foreground="{StaticResource SecondaryText}" FontSize="12" />
+                <TextBlock Text=" % utilisés" Margin="4,2,0,0" Foreground="{StaticResource SecondaryText}" FontSize="12" />
             </StackPanel>
 
             <TextBlock Grid.Column="4"
@@ -61,11 +61,11 @@
                        Foreground="{StaticResource SecondaryText}"
                        FontSize="12"
                        VerticalAlignment="Center"
-                       Margin="10,0,0,0" />
+                       Margin="14,0,0,0" />
 
-            <StackPanel Grid.Column="5" Orientation="Horizontal" HorizontalAlignment="Right" Margin="10,0,0,0">
+            <StackPanel Grid.Column="5" Orientation="Horizontal" HorizontalAlignment="Right" Margin="14,0,0,0">
                 <Button Content="⚙"
-                        ToolTip="{Binding SettingsTooltip}"
+                        ToolTip="Paramètres"
                         Click="SettingsButton_Click"
                         Background="Transparent"
                         BorderBrush="Transparent"
@@ -78,7 +78,7 @@
                         Cursor="Hand"
                         Margin="0,0,18,0" />
                 <Button Content="↻"
-                        ToolTip="{Binding RefreshTooltip}"
+                        ToolTip="Actualiser"
                         Click="RefreshButton_Click"
                         Background="Transparent"
                         BorderBrush="Transparent"
@@ -97,7 +97,7 @@
         <Border Grid.Row="1" Height="1" Background="#FF243044" />
 
         <!-- Status -->
-        <Grid Grid.Row="2" Margin="0,10,0,10">
+        <Grid Grid.Row="2" Margin="0,14,0,14">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
@@ -139,28 +139,28 @@
         <Border Grid.Row="3" Height="1" Background="#FF243044" />
 
         <!-- Chart -->
-        <Grid Grid.Row="4" Margin="0,10,0,10">
+        <Grid Grid.Row="4" Margin="0,16,0,16">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
-            <Grid Grid.Row="0" Margin="0,0,0,6">
+            <Grid Grid.Row="0" Margin="0,0,0,10">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
                 <TextBlock Grid.Column="0"
-                           Text="{Binding ConsumptionTitle}"
+                           Text="Consommation"
                            FontSize="18"
                            FontWeight="Bold" />
 
                 <WrapPanel Grid.Column="1" VerticalAlignment="Center">
-                    <TextBlock Text="{Binding LegendTarget}" Foreground="#FF34C759" Margin="0,0,12,0" FontSize="12" />
-                    <TextBlock Text="{Binding LegendActual}" Foreground="#FF0A84FF" Margin="0,0,12,0" FontSize="12" />
-                    <TextBlock Text="{Binding LegendProjection}" Foreground="#FFFF675F" Margin="0,0,12,0" FontSize="12" />
-                    <TextBlock Text="{Binding LegendHistorical}" Foreground="#FF919196" FontSize="12" />
+                    <TextBlock Text="• Cible" Foreground="#FF34C759" Margin="0,0,12,0" FontSize="12" />
+                    <TextBlock Text="• Réel" Foreground="#FF0A84FF" Margin="0,0,12,0" FontSize="12" />
+                    <TextBlock Text="• Projection" Foreground="#FFFF675F" Margin="0,0,12,0" FontSize="12" />
+                    <TextBlock Text="• Historique" Foreground="#FF919196" FontSize="12" />
                 </WrapPanel>
             </Grid>
 
@@ -170,7 +170,7 @@
         <Border Grid.Row="5" Height="1" Background="#FF243044" />
 
         <!-- Schedule -->
-        <Grid Grid.Row="6" Margin="0,10,0,10">
+        <Grid Grid.Row="6" Margin="0,14,0,14">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
@@ -189,7 +189,7 @@
             </StackPanel>
 
             <Button Grid.Column="1"
-                    Content="{Binding ModifyLabel}"
+                    Content="Modifier"
                     Click="SettingsButton_Click"
                     Background="Transparent"
                     BorderBrush="Transparent"
@@ -204,13 +204,13 @@
         <Border Grid.Row="7" Height="1" Background="#FF243044" />
 
         <!-- Metrics -->
-        <UniformGrid Grid.Row="8" Columns="2" Rows="2" Margin="0,10,0,8">
+        <UniformGrid Grid.Row="8" Columns="2" Rows="2" Margin="0,14,0,10">
             <Grid Margin="0,0,12,12">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
-                <TextBlock Text="{Binding ResetLabel}" Foreground="{StaticResource SecondaryText}" FontSize="11" />
+                <TextBlock Text="Reset" Foreground="{StaticResource SecondaryText}" FontSize="11" />
                 <TextBlock Grid.Row="1" Text="{Binding ResetText}" Margin="0,8,0,0" FontSize="12" FontWeight="Bold" TextWrapping="Wrap" />
             </Grid>
 
@@ -219,7 +219,7 @@
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
-                <TextBlock Text="{Binding ExhaustionLabel}" Foreground="{StaticResource SecondaryText}" FontSize="11" />
+                <TextBlock Text="Épuisement estimé" Foreground="{StaticResource SecondaryText}" FontSize="11" />
                 <TextBlock Grid.Row="1" Text="{Binding EstimatedExhaustionText}" Margin="0,8,0,0" FontSize="12" FontWeight="Bold" TextWrapping="Wrap" />
             </Grid>
 
@@ -228,7 +228,7 @@
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
-                <TextBlock Text="{Binding SuggestedPaceLabel}" Foreground="{StaticResource SecondaryText}" FontSize="11" />
+                <TextBlock Text="Rythme conseillé" Foreground="{StaticResource SecondaryText}" FontSize="11" />
                 <TextBlock Grid.Row="1" Text="{Binding SuggestedPaceText}" Margin="0,8,0,0" FontSize="12" FontWeight="Bold" TextWrapping="Wrap" />
             </Grid>
 
@@ -237,7 +237,7 @@
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
-                <TextBlock Text="{Binding ObservedPaceLabel}" Foreground="{StaticResource SecondaryText}" FontSize="11" />
+                <TextBlock Text="Rythme observé" Foreground="{StaticResource SecondaryText}" FontSize="11" />
                 <TextBlock Grid.Row="1" Text="{Binding CurrentPaceText}" Margin="0,8,0,0" FontSize="12" FontWeight="Bold" TextWrapping="Wrap" />
             </Grid>
         </UniformGrid>
@@ -270,7 +270,7 @@
                        VerticalAlignment="Center" />
 
             <Button Grid.Column="1"
-                    Content="{Binding HideLabel}"
+                    Content="Masquer"
                     Click="HideButton_Click"
                     Background="Transparent"
                     BorderBrush="Transparent"

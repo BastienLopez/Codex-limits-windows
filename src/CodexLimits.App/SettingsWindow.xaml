@@ -2,9 +2,12 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Paramètres"
-        Width="430" Height="620"
-        MinWidth="430" MinHeight="620"
-        MaxWidth="430" MaxHeight="620"
+        Width="460"
+        Height="620"
+        MinWidth="460"
+        MinHeight="620"
+        MaxWidth="460"
+        MaxHeight="620"
         ResizeMode="NoResize"
         WindowStartupLocation="CenterOwner"
         Background="{StaticResource WindowBackground}"
@@ -13,45 +16,158 @@
         ShowInTaskbar="False">
 
     <Window.Resources>
-        <Style x:Key="ReadableComboBox" TargetType="ComboBox" BasedOn="{StaticResource {x:Type ComboBox}}">
-            <Setter Property="Foreground" Value="#FF111111" />
-            <Setter Property="Background" Value="#FFF5F5F5" />
-            <Setter Property="BorderBrush" Value="#FF66758A" />
-            <Setter Property="ItemContainerStyle">
+        <Style x:Key="SectionTitleStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="White" />
+        </Style>
+
+        <Style x:Key="HintStyle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Foreground" Value="{StaticResource SecondaryText}" />
+        </Style>
+
+        <Style x:Key="InputTextStyle" TargetType="TextBox">
+            <Setter Property="Height" Value="34" />
+            <Setter Property="FontSize" Value="15" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="Background" Value="#FF0D141D" />
+            <Setter Property="BorderBrush" Value="#FF324055" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="10,2,10,2" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="CaretBrush" Value="White" />
+        </Style>
+
+        <Style x:Key="DarkComboBoxItemStyle" TargetType="ComboBoxItem">
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="Background" Value="#FF0D141D" />
+            <Setter Property="Padding" Value="10,7" />
+            <Setter Property="FontSize" Value="15" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Template">
                 <Setter.Value>
-                    <Style TargetType="ComboBoxItem">
-                        <Setter Property="Foreground" Value="#FF111111" />
-                        <Setter Property="Background" Value="#FFFFFFFF" />
-                        <Setter Property="Padding" Value="8,5" />
-                        <Style.Triggers>
+                    <ControlTemplate TargetType="ComboBoxItem">
+                        <Border x:Name="ItemBorder" Background="{TemplateBinding Background}">
+                            <ContentPresenter VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
                             <Trigger Property="IsHighlighted" Value="True">
-                                <Setter Property="Background" Value="#FFBFE5FA" />
-                                <Setter Property="Foreground" Value="#FF111111" />
+                                <Setter TargetName="ItemBorder" Property="Background" Value="#FF1A2432" />
                             </Trigger>
                             <Trigger Property="IsSelected" Value="True">
-                                <Setter Property="Background" Value="#FF9ED7F4" />
-                                <Setter Property="Foreground" Value="#FF111111" />
+                                <Setter TargetName="ItemBorder" Property="Background" Value="#FF245FB3" />
                             </Trigger>
-                        </Style.Triggers>
-                    </Style>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <Style x:Key="DarkComboBoxStyle" TargetType="ComboBox">
+            <Setter Property="Height" Value="34" />
+            <Setter Property="FontSize" Value="15" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="Background" Value="#FF0D141D" />
+            <Setter Property="BorderBrush" Value="#FF324055" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="ItemContainerStyle" Value="{StaticResource DarkComboBoxItemStyle}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid>
+                            <Border x:Name="OuterBorder"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}" />
+
+                            <ContentPresenter Margin="10,0,34,0"
+                                              VerticalAlignment="Center"
+                                              HorizontalAlignment="Left"
+                                              Content="{TemplateBinding SelectionBoxItem}"
+                                              ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                              ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"
+                                              IsHitTestVisible="False" />
+
+                            <TextBlock Text="⌄"
+                                       Foreground="#FFB8C1D0"
+                                       FontSize="14"
+                                       HorizontalAlignment="Right"
+                                       VerticalAlignment="Center"
+                                       Margin="0,0,12,0"
+                                       IsHitTestVisible="False" />
+
+                            <ToggleButton Background="Transparent"
+                                          BorderThickness="0"
+                                          Focusable="False"
+                                          ClickMode="Press"
+                                          IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
+                                <ToggleButton.Template>
+                                    <ControlTemplate TargetType="ToggleButton">
+                                        <Border Background="Transparent" />
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
+                            </ToggleButton>
+
+                            <Popup x:Name="Popup"
+                                   Placement="Bottom"
+                                   IsOpen="{TemplateBinding IsDropDownOpen}"
+                                   AllowsTransparency="True"
+                                   Focusable="False"
+                                   PopupAnimation="Fade">
+                                <Border Margin="0,4,0,0"
+                                        MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}"
+                                        Background="#FF0D141D"
+                                        BorderBrush="#FF324055"
+                                        BorderThickness="1">
+                                    <ScrollViewer MaxHeight="230">
+                                        <StackPanel IsItemsHost="True" />
+                                    </ScrollViewer>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="OuterBorder" Property="BorderBrush" Value="#FF46607E" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                                <Setter TargetName="OuterBorder" Property="BorderBrush" Value="#FF4A84D8" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="PlainButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="#FF0E1520" />
+            <Setter Property="BorderBrush" Value="#FF384455" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="Padding" Value="16,8" />
+        </Style>
     </Window.Resources>
 
-    <Grid Margin="14">
+    <Grid Margin="20,16,20,16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="8" />
+            <RowDefinition Height="12" />
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="8" />
+            <RowDefinition Height="10" />
+            <RowDefinition Height="1" />
+            <RowDefinition Height="10" />
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="8" />
+            <RowDefinition Height="10" />
+            <RowDefinition Height="1" />
+            <RowDefinition Height="10" />
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="8" />
+            <RowDefinition Height="10" />
+            <RowDefinition Height="1" />
+            <RowDefinition Height="10" />
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="8" />
-            <RowDefinition Height="Auto" />
+            <RowDefinition Height="10" />
+            <RowDefinition Height="1" />
+            <RowDefinition Height="10" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
@@ -59,107 +175,156 @@
 
         <StackPanel Grid.Row="0">
             <TextBlock x:Name="TitleText" Text="Paramètres" FontSize="22" FontWeight="Bold" />
-            <TextBlock x:Name="SubtitleText" Text="Planning, réserve et fréquence d’actualisation."
-                       Foreground="{StaticResource SecondaryText}" Margin="0,4,0,0" FontSize="12" />
+            <TextBlock x:Name="SubtitleText"
+                       Text="Planning de travail, actualisation et réserve."
+                       Margin="0,5,0,0"
+                       FontSize="12"
+                       Foreground="{StaticResource SecondaryText}" />
         </StackPanel>
 
-        <Border Grid.Row="2" Style="{StaticResource CardStyle}" Padding="11">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="145" />
-                </Grid.ColumnDefinitions>
-                <TextBlock x:Name="LanguageLabel" Text="Langue" FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center" />
-                <ComboBox x:Name="LanguageCombo" Grid.Column="1" Style="{StaticResource ReadableComboBox}"
-                          DisplayMemberPath="Label" SelectedValuePath="Value"
-                          SelectionChanged="LanguageCombo_SelectionChanged" />
-            </Grid>
-        </Border>
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="210" />
+            </Grid.ColumnDefinitions>
+            <TextBlock x:Name="LanguageLabel" Text="Langue" Style="{StaticResource SectionTitleStyle}" VerticalAlignment="Center" />
+            <ComboBox x:Name="LanguageCombo"
+                      Grid.Column="1"
+                      Style="{StaticResource DarkComboBoxStyle}"
+                      DisplayMemberPath="Label"
+                      SelectedValuePath="Value"
+                      SelectionChanged="LanguageCombo_SelectionChanged" />
+        </Grid>
 
-        <Border Grid.Row="4" Style="{StaticResource CardStyle}" Padding="11">
+        <Border Grid.Row="4" Height="1" Background="#FF243044" />
+
+        <Grid Grid.Row="6">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="136" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="6" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <TextBlock x:Name="StartLabel" Text="Premier jour travaillé" Style="{StaticResource SectionTitleStyle}" />
+            <TextBlock x:Name="StartTimeLabel" Grid.Column="1" Text="Début" Style="{StaticResource SectionTitleStyle}" />
+            <ComboBox x:Name="StartDayCombo"
+                      Grid.Row="2"
+                      Margin="0,0,14,0"
+                      Style="{StaticResource DarkComboBoxStyle}"
+                      DisplayMemberPath="Label"
+                      SelectedValuePath="Value" />
+            <TextBox x:Name="StartTimeBox"
+                     Grid.Row="2"
+                     Grid.Column="1"
+                     Style="{StaticResource InputTextStyle}"
+                     MaxLength="5" />
+        </Grid>
+
+        <Border Grid.Row="8" Height="1" Background="#FF243044" />
+
+        <Grid Grid.Row="10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="136" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="6" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <TextBlock x:Name="EndLabel" Text="Dernier jour travaillé" Style="{StaticResource SectionTitleStyle}" />
+            <TextBlock x:Name="EndTimeLabel" Grid.Column="1" Text="Fin" Style="{StaticResource SectionTitleStyle}" />
+            <ComboBox x:Name="EndDayCombo"
+                      Grid.Row="2"
+                      Margin="0,0,14,0"
+                      Style="{StaticResource DarkComboBoxStyle}"
+                      DisplayMemberPath="Label"
+                      SelectedValuePath="Value" />
+            <TextBox x:Name="EndTimeBox"
+                     Grid.Row="2"
+                     Grid.Column="1"
+                     Style="{StaticResource InputTextStyle}"
+                     MaxLength="5" />
+        </Grid>
+
+        <Border Grid.Row="12" Height="1" Background="#FF243044" />
+
+        <Grid Grid.Row="14">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="136" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="5" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <TextBlock x:Name="RefreshLabel" Text="Actualisation automatique" Style="{StaticResource SectionTitleStyle}" />
+            <TextBlock x:Name="RefreshHintText" Grid.Row="2" Text="Intervalle en minutes" Style="{StaticResource HintStyle}" />
+            <ComboBox x:Name="RefreshIntervalCombo"
+                      Grid.Column="1"
+                      Grid.RowSpan="3"
+                      Style="{StaticResource DarkComboBoxStyle}"
+                      IsEditable="False"
+                      VerticalAlignment="Center" />
+        </Grid>
+
+        <Border Grid.Row="16" Height="1" Background="#FF243044" />
+
+        <StackPanel Grid.Row="18">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="92" />
+                    <ColumnDefinition Width="136" />
                 </Grid.ColumnDefinitions>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
+                    <RowDefinition Height="5" />
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
-                <TextBlock x:Name="StartLabel" Text="Début" FontWeight="SemiBold" FontSize="13" Margin="0,0,0,5" />
-                <ComboBox x:Name="StartDayCombo" Grid.Row="1" Margin="0,0,8,0"
-                          Style="{StaticResource ReadableComboBox}"
-                          DisplayMemberPath="Label" SelectedValuePath="Value" />
-                <TextBlock x:Name="StartTimeLabel" Grid.Column="1" Text="Heure" FontWeight="SemiBold" FontSize="13" Margin="0,0,0,5" />
-                <TextBox x:Name="StartTimeBox" Grid.Row="1" Grid.Column="1" />
-            </Grid>
-        </Border>
-
-        <Border Grid.Row="6" Style="{StaticResource CardStyle}" Padding="11">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="92" />
-                </Grid.ColumnDefinitions>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                </Grid.RowDefinitions>
-                <TextBlock x:Name="EndLabel" Text="Fin" FontWeight="SemiBold" FontSize="13" Margin="0,0,0,5" />
-                <ComboBox x:Name="EndDayCombo" Grid.Row="1" Margin="0,0,8,0"
-                          Style="{StaticResource ReadableComboBox}"
-                          DisplayMemberPath="Label" SelectedValuePath="Value" />
-                <TextBlock x:Name="EndTimeLabel" Grid.Column="1" Text="Heure" FontWeight="SemiBold" FontSize="13" Margin="0,0,0,5" />
-                <TextBox x:Name="EndTimeBox" Grid.Row="1" Grid.Column="1" />
-            </Grid>
-        </Border>
-
-        <Border Grid.Row="8" Style="{StaticResource CardStyle}" Padding="11">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="100" />
-                </Grid.ColumnDefinitions>
-                <StackPanel>
-                    <TextBlock x:Name="RefreshLabel" Text="Actualisation automatique" FontWeight="SemiBold" FontSize="13" />
-                    <TextBlock x:Name="RefreshHintText" Text="Intervalle en minutes" Foreground="{StaticResource SecondaryText}" Margin="0,4,0,0" FontSize="11" />
-                </StackPanel>
-                <ComboBox x:Name="RefreshIntervalCombo" Grid.Column="1" IsEditable="True" VerticalAlignment="Center"
-                          Style="{StaticResource ReadableComboBox}" />
-            </Grid>
-        </Border>
-
-        <Border Grid.Row="10" Style="{StaticResource CardStyle}" Padding="11">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="88" />
-                </Grid.ColumnDefinitions>
-                <StackPanel>
-                    <TextBlock x:Name="ReserveLabel" Text="Réserve de sécurité" FontWeight="SemiBold" FontSize="13" />
-                    <TextBlock x:Name="ReserveHintText" Text="Pourcentage à conserver" Foreground="{StaticResource SecondaryText}" Margin="0,4,0,0" FontSize="11" />
-                </StackPanel>
-                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                    <TextBox x:Name="SafetyBufferBox" Width="52" />
-                    <TextBlock Text=" %" VerticalAlignment="Center" FontSize="13" />
+                <TextBlock x:Name="ReserveLabel" Text="Réserve de sécurité" Style="{StaticResource SectionTitleStyle}" />
+                <TextBlock x:Name="ReserveHintText" Grid.Row="2" Text="Quota à préserver" Style="{StaticResource HintStyle}" />
+                <StackPanel Grid.Column="1" Grid.RowSpan="3" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <TextBox x:Name="SafetyBufferBox" Width="84" Style="{StaticResource InputTextStyle}" />
+                    <TextBlock Text="%" Margin="10,0,0,0" FontSize="16" VerticalAlignment="Center" />
                 </StackPanel>
             </Grid>
-        </Border>
 
-        <CheckBox x:Name="PauseOutsideCheckBox" Grid.Row="11" Margin="3,7,0,0"
-                  Content="Suspendre l’actualisation automatique hors créneau" FontSize="11" />
+            <CheckBox x:Name="PauseOutsideCheckBox"
+                      Content="Suspendre l’actualisation automatique hors créneau"
+                      Margin="0,12,0,0"
+                      FontSize="11" />
 
-        <Grid Grid.Row="13" Margin="0,8,0,0">
+            <TextBlock x:Name="ValidationText"
+                       MinHeight="16"
+                       Margin="0,6,0,0"
+                       TextWrapping="Wrap"
+                       FontSize="11"
+                       Foreground="{StaticResource WarningBrush}" />
+        </StackPanel>
+
+        <Grid Grid.Row="20" Margin="0,10,0,0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
-            <TextBlock x:Name="ValidationText" Foreground="{StaticResource WarningBrush}"
-                       VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,8,0" FontSize="11" />
-            <Button x:Name="CancelButton" Grid.Column="1" Content="Annuler" Margin="0,0,8,0" Padding="12,7" Click="CancelButton_Click" />
-            <Button x:Name="SaveButton" Grid.Column="2" Content="Enregistrer" Padding="12,7"
-                    Background="#FF245FB3" BorderBrush="#FF4A84D8" Click="SaveButton_Click" />
+            <Button x:Name="CancelButton"
+                    Grid.Column="1"
+                    Content="Annuler"
+                    Margin="0,0,10,0"
+                    Style="{StaticResource PlainButtonStyle}"
+                    Click="CancelButton_Click" />
+            <Button x:Name="SaveButton"
+                    Grid.Column="2"
+                    Content="Enregistrer"
+                    Style="{StaticResource PlainButtonStyle}"
+                    Background="#FF245FB3"
+                    BorderBrush="#FF4A84D8"
+                    Click="SaveButton_Click" />
         </Grid>
     </Grid>
 </Window>
