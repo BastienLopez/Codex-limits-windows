@@ -20,15 +20,23 @@ jobs:
         with:
           dotnet-version: 8.0.x
 
-      - name: Audit source tree
+      - name: Verify repository cleanliness
         shell: powershell
-        run: .\scripts\audit-release.ps1
+        run: |
+          $forbidden = git ls-files | Where-Object {
+            $_ -match '(^|/)(bin|obj|artifacts|TestResults)/' -or
+            $_ -match '(\.bak($|[-.])|\.tmp$|\.temp$|~$)' -or
+            $_ -match '\.(pfx|p12|pem|key)$'
+          }
+          if ($forbidden) {
+            throw "Tracked generated, backup, temporary, or sensitive files:`n$($forbidden -join "`n")"
+          }
 
       - name: Build and smoke tests
         shell: powershell
         run: .\scripts\test.ps1
 
-      - name: Verify self-contained publish
+      - name: Publish self-contained Windows x64 build
         shell: powershell
         run: |
           dotnet publish .\src\CodexLimits.App\CodexLimits.App.csproj `

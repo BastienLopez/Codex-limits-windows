@@ -106,7 +106,8 @@ public static class ForecastEngine
             ? historicalRates.Average()
             : currentRate;
 
-        // The red projection and the status are based on the current cycle only.
+        // The red projection remains limited to the current displayed cycle.
+        // Exhaustion and risk also consider future active slots up to the Codex reset.
         // Historical data remains a separate grey comparison curve.
         var expectedRate = currentRate;
         var safetyRate = currentRate * 1.15;
@@ -117,12 +118,20 @@ public static class ForecastEngine
             ? Math.Max(window.RemainingPercent - safetyBuffer, 0) / activeDaysLeft
             : 0;
 
+        DateTimeOffset? exhaustionAt = null;
+        if (currentRate > 0)
+        {
+            var hoursToEmpty = window.RemainingPercent / currentRate * dailyHours;
+            exhaustionAt = ScheduleMath.AddActiveHours(now, hoursToEmpty, window.ResetsAt, normalized);
+        }
+
         PaceStatus status;
         if (activeDaysLeft <= 0)
         {
-            status = PaceStatus.OnTrack;
+            status = exhaustionAt is not null ? PaceStatus.SlowDown : PaceStatus.OnTrack;
         }
         else if (
+            exhaustionAt is not null ||
             currentRate > recommended * 1.05 ||
             expected < safetyBuffer ||
             (previousStatus == PaceStatus.SlowDown && currentRate > recommended))
@@ -138,13 +147,6 @@ public static class ForecastEngine
         else
         {
             status = PaceStatus.OnTrack;
-        }
-
-        DateTimeOffset? exhaustionAt = null;
-        if (currentRate > 0)
-        {
-            var hoursToEmpty = window.RemainingPercent / currentRate * dailyHours;
-            exhaustionAt = ScheduleMath.AddActiveHours(now, hoursToEmpty, cycleEnd, normalized);
         }
 
         return new Forecast(

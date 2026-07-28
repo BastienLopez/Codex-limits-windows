@@ -24,6 +24,19 @@ Assert(Math.Abs(ScheduleMath.GetActiveHours(monday, fridayEnd, settings) - 45) <
 
 // Cas réel typique : le quota Codex redémarre mardi matin, au milieu du planning local.
 var now = LocalOffset(new DateTime(2026, 7, 28, 11, 0, 0, DateTimeKind.Unspecified));
+
+var availableBalance = DailyQuotaMath.Evaluate(78, now, cycle, settings.SafetyBuffer);
+Assert(Math.Abs(availableBalance.AvailablePercent - 16.8) < 0.01,
+    "Le résumé doit indiquer le quota encore utilisable aujourd'hui avant de dépasser la cible.");
+Assert(availableBalance.ExceededPercent < 0.01,
+    "Aucun dépassement ne doit être annoncé lorsque le quota reste au-dessus de la cible du jour.");
+
+var exceededBalance = DailyQuotaMath.Evaluate(59, now, cycle, settings.SafetyBuffer);
+Assert(Math.Abs(exceededBalance.ExceededPercent - 2.2) < 0.01,
+    "Le résumé doit calculer le dépassement par rapport à la cible de fin de journée.");
+Assert(exceededBalance.AvailablePercent < 0.01,
+    "Le quota encore utilisable aujourd'hui doit être nul lorsque la cible journalière est dépassée.");
+
 var windowStart = LocalOffset(new DateTime(2026, 7, 28, 9, 58, 0, DateTimeKind.Unspecified));
 var reset = LocalOffset(new DateTime(2026, 8, 4, 9, 58, 0, DateTimeKind.Unspecified));
 var window = new UsageWindow(88, reset, (int)(reset - windowStart).TotalMinutes);
@@ -50,6 +63,48 @@ Assert(forecast.ExpectedRemainingAtReset > settings.SafetyBuffer,
     "La projection doit conserver une marge avant vendredi 18:00.");
 Assert(forecast.ActiveHoursLeft > 0,
     "Il doit rester des heures actives dans le planning.");
+Assert(forecast.EstimatedExhaustionAt is null,
+    "Un rythme modéré ne doit pas annoncer un épuisement avant le reset.");
+
+var exhaustionWindow = new UsageWindow(55, reset, (int)(reset - windowStart).TotalMinutes);
+var exhaustionForecast = ForecastEngine.Evaluate(
+    exhaustionWindow,
+    new[]
+    {
+        new UsageSample(windowStart, 100, reset),
+        new UsageSample(now, 55, reset)
+    },
+    Array.Empty<TokenDay>(),
+    settings.SafetyBuffer,
+    now,
+    null,
+    settings);
+
+var expectedExhaustion = LocalOffset(new DateTime(2026, 7, 29, 13, 0, 0, DateTimeKind.Unspecified));
+Assert(exhaustionForecast.Status == PaceStatus.SlowDown,
+    "Une consommation de 45 % au début du cycle doit déclencher le statut Risque.");
+Assert(exhaustionForecast.EstimatedExhaustionAt == expectedExhaustion,
+    "L'épuisement doit être calculé sur les créneaux actifs et tomber mercredi à 13:00.");
+
+var nextWeekWindow = new UsageWindow(80, reset, (int)(reset - windowStart).TotalMinutes);
+var nextWeekForecast = ForecastEngine.Evaluate(
+    nextWeekWindow,
+    new[]
+    {
+        new UsageSample(windowStart, 100, reset),
+        new UsageSample(now, 80, reset)
+    },
+    Array.Empty<TokenDay>(),
+    settings.SafetyBuffer,
+    now,
+    null,
+    settings);
+
+var expectedNextWeekExhaustion = LocalOffset(new DateTime(2026, 8, 3, 11, 0, 0, DateTimeKind.Unspecified));
+Assert(nextWeekForecast.EstimatedExhaustionAt == expectedNextWeekExhaustion,
+    "La recherche d'épuisement doit continuer après vendredi jusqu'au reset Codex.");
+Assert(nextWeekForecast.Status == PaceStatus.SlowDown,
+    "Un épuisement prévu avant le reset doit toujours déclencher le statut Risque.");
 
 var snapshot = new UsageSnapshot(
     new LimitReading("codex", "Codex", window),

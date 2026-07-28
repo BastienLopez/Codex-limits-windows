@@ -1,6 +1,6 @@
 # Codex Limits Windows
 
-Application Windows locale qui affiche le quota Codex restant, mesure le rythme de consommation et projette le quota disponible jusqu’à la fin d’un planning de travail configurable.
+Application Windows locale qui affiche le quota Codex restant, mesure le rythme de consommation et estime le moment où le quota atteindrait 0 % selon un planning de travail configurable.
 
 ![Aperçu de Codex Limits Windows](docs/codex-limits.png)
 
@@ -12,7 +12,7 @@ Application Windows locale qui affiche le quota Codex restant, mesure le rythme 
 - lecture du quota via l’interface locale documentée de `codex app-server` ;
 - pourcentage restant et consommé ;
 - cible journalière, consommation réelle, projection actuelle et historique ;
-- estimation du quota restant à la fin du planning ;
+- estimation du jour et de l’heure où le quota atteindrait 0 % au rythme actuel ;
 - quota encore utilisable aujourd’hui pour rester sur la cible ;
 - planning configurable : jours, horaires et fréquence d’actualisation ;
 - réserve de sécurité configurable ;
@@ -82,12 +82,6 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\run.ps1
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-background.ps1
 ```
 
-### Mode démonstration
-
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\run-demo.ps1
-```
-
 ## Compiler et tester
 
 ```powershell
@@ -131,8 +125,7 @@ tests/
 docs/
 ├── icon.png
 ├── icon.ico
-├── codex-limits.png
-└── RELEASE_CHECKLIST.md
+└── codex-limits.png
 ```
 
 ## Sécurité

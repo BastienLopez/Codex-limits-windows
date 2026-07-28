@@ -28,13 +28,13 @@ public partial class MainWindow : Window, IDisposable
     private DateTimeOffset _nextRefreshAt;
     private bool _exitRequested;
 
-    public MainWindow(bool demo)
+    public MainWindow()
     {
         InitializeComponent();
 
         _uiState = _uiStateStore.Load();
         var settings = _settingsStore.Load();
-        _viewModel = new MainViewModel(demo, settings);
+        _viewModel = new MainViewModel(settings);
         DataContext = _viewModel;
         _viewModel.PropertyChanged += ViewModel_PropertyChanged;
 
@@ -189,7 +189,7 @@ public partial class MainWindow : Window, IDisposable
             return separator > 0 ? informational[..separator] : informational;
         }
 
-        return assembly.GetName().Version?.ToString(3) ?? "0.5.0";
+        return assembly.GetName().Version?.ToString(3) ?? "0.5.3";
     }
 
     private void UpdateLocalizedShellText()

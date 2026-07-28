@@ -12,7 +12,6 @@ public sealed class MainViewModel : INotifyPropertyChanged
 {
     private readonly IUsageProvider _provider;
     private readonly UsageHistoryStore _history = new();
-    private readonly bool _demo;
     private readonly List<UsageSample> _samples = new();
     private AppSettings _settings;
     private PaceStatus? _previousStatus;
@@ -22,11 +21,10 @@ public sealed class MainViewModel : INotifyPropertyChanged
     private string? _errorMessage;
     private ChartState? _chart;
 
-    public MainViewModel(bool demo, AppSettings settings)
+    public MainViewModel(AppSettings settings)
     {
-        _demo = demo;
         _settings = settings.Normalize();
-        _provider = demo ? new DemoUsageProvider() : new CodexAppServerClient();
+        _provider = new CodexAppServerClient();
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -71,10 +69,11 @@ public sealed class MainViewModel : INotifyPropertyChanged
             }
 
             var cycle = ScheduleMath.GetPlanningCycle(_snapshot.FetchedAt, _settings);
-            return CalculateAvailableToday(
+            return DailyQuotaMath.Evaluate(
                 _snapshot.MainLimit.Window.RemainingPercent,
                 _snapshot.FetchedAt,
-                cycle);
+                cycle,
+                _settings.SafetyBuffer).AvailablePercent;
         }
     }
     public string UsedValueText => _snapshot is null ? "—" : $"{100 - RemainingValue:0}";
@@ -98,9 +97,8 @@ public sealed class MainViewModel : INotifyPropertyChanged
     public string ObservedPaceLabel => L("Rythme observé", "Observed pace");
     public string HideLabel => L("Masquer", "Hide");
 
-    public string PlanText => _demo
-        ? L("Mode démo", "Demo mode")
-        : L("Codex CLI • historique local uniquement", "Codex CLI • local history only");
+    public string PlanText =>
+        L("Codex CLI • historique local uniquement", "Codex CLI • local history only");
 
     public string ErrorText => _errorMessage ?? string.Empty;
     public bool HasError => !string.IsNullOrWhiteSpace(_errorMessage);
@@ -188,13 +186,10 @@ public sealed class MainViewModel : INotifyPropertyChanged
                 return FormatDate(exhaustion.ToLocalTime());
             }
 
-            var cycle = ScheduleMath.GetPlanningCycle(_snapshot.FetchedAt, _settings);
-            var planningEnd = cycle.LastOrDefault()?.End;
-            return planningEnd is { } end
-                ? L(
-                    $"Pas d’épuisement prévu avant {FormatDate(end.ToLocalTime())}",
-                    $"No exhaustion expected before {FormatDate(end.ToLocalTime())}")
-                : L("Pas d’épuisement prévu", "No exhaustion expected");
+            var reset = _snapshot.MainLimit.Window.ResetsAt.ToLocalTime();
+            return L(
+                $"Pas d’épuisement prévu avant le reset du {FormatDate(reset)}",
+                $"No exhaustion expected before the reset on {FormatDate(reset)}");
         }
     }
 
@@ -247,65 +242,42 @@ public sealed class MainViewModel : INotifyPropertyChanged
         DateTimeOffset reference)
     {
         var cycle = ScheduleMath.GetPlanningCycle(reference, _settings);
-        var planningEnd = cycle.LastOrDefault()?.End;
-
-        var endLabel = planningEnd is { } end
-            ? FormatScheduleEnd(end.ToLocalTime())
-            : L("fin du planning", "end of the schedule");
-
-        var availableToday = CalculateAvailableToday(
+        var todayBalance = DailyQuotaMath.Evaluate(
             window.RemainingPercent,
             reference,
-            cycle);
-
-        return L(
-            $"Aujourd'hui : encore {availableToday:0} % utilisables pour rester sur la cible.\n{UppercaseFirst(endLabel)} : environ {forecast.ExpectedRemainingAtReset:0} % restants au rythme actuel.",
-            $"Today: {availableToday:0}% still available while staying on target.\n{UppercaseFirst(endLabel)}: about {forecast.ExpectedRemainingAtReset:0}% remaining at the current pace.");
-    }
-
-    private double CalculateAvailableToday(
-        double remainingPercent,
-        DateTimeOffset reference,
-        IReadOnlyList<TimeRange> cycle)
-    {
-        if (cycle.Count == 0)
-        {
-            return 0;
-        }
-
-        var today = reference.ToLocalTime().Date;
-        var todayIndex = -1;
-
-        for (var index = 0; index < cycle.Count; index++)
-        {
-            if (cycle[index].Start.ToLocalTime().Date == today)
-            {
-                todayIndex = index;
-                break;
-            }
-        }
-
-        if (todayIndex < 0 || reference >= cycle[todayIndex].End)
-        {
-            return 0;
-        }
-
-        var dailyTarget = (100d - _settings.SafetyBuffer) / cycle.Count;
-        var targetRemainingAtEndOfToday = Math.Max(
-            100d - dailyTarget * (todayIndex + 1),
+            cycle,
             _settings.SafetyBuffer);
 
-        return Math.Max(
-            remainingPercent - targetRemainingAtEndOfToday,
-            0);
+        var todayLine = forecast.Status == PaceStatus.SlowDown && todayBalance.ExceededPercent >= 0.5d
+            ? L(
+                $"Aujourd'hui : {todayBalance.ExceededPercent:0} % dépassés par rapport au rythme conseillé.",
+                $"Today: {todayBalance.ExceededPercent:0}% over the recommended pace.")
+            : L(
+                $"Aujourd'hui : encore {todayBalance.AvailablePercent:0} % utilisables pour rester sur la cible.",
+                $"Today: {todayBalance.AvailablePercent:0}% still available while staying on target.");
+
+        string forecastLine;
+        if (forecast.EstimatedExhaustionAt is { } exhaustion &&
+            exhaustion <= window.ResetsAt)
+        {
+            var exhaustionLabel = FormatExhaustionPoint(exhaustion.ToLocalTime());
+            forecastLine = L(
+                $"{UppercaseFirst(exhaustionLabel)} : quota estimé à 0 % au rythme actuel.",
+                $"{UppercaseFirst(exhaustionLabel)}: quota estimated at 0% at the current pace.");
+        }
+        else
+        {
+            forecastLine = L(
+                $"Pas d'épuisement prévu avant le reset du {FormatDate(window.ResetsAt.ToLocalTime())}.",
+                $"No exhaustion expected before the reset on {FormatDate(window.ResetsAt.ToLocalTime())}.");
+        }
+
+        return $"{todayLine}\n{forecastLine}";
     }
 
     public async Task StartAsync(CancellationToken cancellationToken = default)
     {
-        if (!_demo)
-        {
-            _samples.AddRange(await _history.LoadAsync(cancellationToken: cancellationToken));
-        }
+        _samples.AddRange(await _history.LoadAsync(cancellationToken: cancellationToken));
         await RefreshAsync(cancellationToken);
     }
 
@@ -321,11 +293,6 @@ public sealed class MainViewModel : INotifyPropertyChanged
             var snapshot = await _provider.FetchAsync(cancellationToken);
             _snapshot = snapshot;
 
-            if (_demo && _samples.Count == 0)
-            {
-                _samples.AddRange(DemoUsageProvider.CreateSeedSamples(snapshot.MainLimit.Window, snapshot.FetchedAt));
-            }
-
             var sample = new UsageSample(
                 snapshot.FetchedAt,
                 snapshot.MainLimit.Window.RemainingPercent,
@@ -336,10 +303,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
                 Math.Abs(_samples[^1].RemainingPercent - sample.RemainingPercent) > 0.001)
             {
                 _samples.Add(sample);
-                if (!_demo)
-                {
-                    await _history.RecordAsync(sample, cancellationToken);
-                }
+                await _history.RecordAsync(sample, cancellationToken);
             }
 
             Recalculate();
@@ -426,32 +390,7 @@ public sealed class MainViewModel : INotifyPropertyChanged
         return name;
     }
 
-    private string BuildSlowDownMessage(UsageWindow window, Forecast forecast)
-    {
-        if (forecast.EstimatedExhaustionAt is not { } exhaustion)
-        {
-            return L("Ton rythme actuel est trop proche de la limite.", "Your current pace is too close to the limit.");
-        }
-
-        var cycle = ScheduleMath.GetPlanningCycle(DateTimeOffset.Now, _settings);
-        var planningEnd = cycle.LastOrDefault()?.End;
-        if (planningEnd is null || exhaustion >= planningEnd)
-        {
-            return L("Ton rythme actuel est trop proche de la limite.", "Your current pace is too close to the limit.");
-        }
-
-        var activeHoursEarly = ScheduleMath.GetActiveHours(cycle, exhaustion, planningEnd.Value);
-        var dailyHours = ScheduleMath.GetNominalDailyHours(_settings);
-        return activeHoursEarly >= dailyHours
-            ? L(
-                $"À ce rythme, le quota pourrait être épuisé {Math.Max((int)Math.Round(activeHoursEarly / dailyHours), 1)} jour(s) travaillé(s) trop tôt.",
-                $"At this pace, the quota could run out {Math.Max((int)Math.Round(activeHoursEarly / dailyHours), 1)} workday(s) too early.")
-            : L(
-                $"À ce rythme, le quota pourrait être épuisé {Math.Max((int)Math.Round(activeHoursEarly), 1)} heure(s) active(s) trop tôt.",
-                $"At this pace, the quota could run out {Math.Max((int)Math.Round(activeHoursEarly), 1)} active hour(s) too early.");
-    }
-
-    private string FormatScheduleEnd(DateTimeOffset value) => UiText.IsEnglish(_settings.Language)
+    private string FormatExhaustionPoint(DateTimeOffset value) => UiText.IsEnglish(_settings.Language)
         ? value.ToString("dddd 'at' HH:mm", Culture)
         : value.ToString("dddd 'à' HH:mm", Culture);
 
