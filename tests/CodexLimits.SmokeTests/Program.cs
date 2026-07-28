@@ -80,6 +80,35 @@ Assert(projectionEnd.Time == fridayEnd,
 Assert(Math.Abs(projectionEnd.RemainingPercent - forecast.ExpectedRemainingAtReset) < 0.01,
     "La fin de la courbe rouge doit correspondre au pourcentage annoncé dans le message.");
 
+var historyDirectory = Path.Combine(Path.GetTempPath(), "CodexLimitsSmokeTests", Guid.NewGuid().ToString("N"));
+try
+{
+    var historyStore = new UsageHistoryStore(historyDirectory);
+    var historyNow = DateTimeOffset.UtcNow;
+    var recentSample = new UsageSample(historyNow.AddDays(-1), 75, historyNow.AddDays(6));
+    var expiredSample = new UsageSample(historyNow.AddDays(-100), 90, historyNow.AddDays(-93));
+
+    await historyStore.RecordAsync(recentSample);
+    await historyStore.RecordAsync(expiredSample);
+
+    var retained = await historyStore.LoadAsync(retentionDays: 90);
+    Assert(retained.Any(sample => sample.ObservedAt == recentSample.ObservedAt),
+        "Un échantillon récent doit être conservé.");
+    Assert(retained.All(sample => sample.ObservedAt != expiredSample.ObservedAt),
+        "Un échantillon de plus de 90 jours ne doit pas être chargé.");
+
+    var expiredFile = Path.Combine(historyDirectory, $"{expiredSample.ObservedAt.UtcDateTime:yyyy-MM-dd}.jsonl");
+    Assert(!File.Exists(expiredFile),
+        "Le fichier quotidien expiré doit être supprimé au chargement.");
+}
+finally
+{
+    if (Directory.Exists(historyDirectory))
+    {
+        Directory.Delete(historyDirectory, recursive: true);
+    }
+}
+
 Console.WriteLine("Smoke tests OK");
 return;
 

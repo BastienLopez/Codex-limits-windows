@@ -8,12 +8,42 @@ permissions:
   contents: read
 
 jobs:
-  build-and-smoke-test:
+  build-test-publish:
     runs-on: windows-latest
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
-      - run: dotnet build CodexLimits.Windows.sln -c Release
-      - run: dotnet run --project tests/CodexLimits.SmokeTests/CodexLimits.SmokeTests.csproj -c Release --no-build
+
+      - name: Audit source tree
+        shell: powershell
+        run: .\scripts\audit-release.ps1
+
+      - name: Build and smoke tests
+        shell: powershell
+        run: .\scripts\test.ps1
+
+      - name: Verify self-contained publish
+        shell: powershell
+        run: |
+          dotnet publish .\src\CodexLimits.App\CodexLimits.App.csproj `
+            -c Release `
+            -r win-x64 `
+            --self-contained true `
+            -p:PublishSingleFile=true `
+            -p:IncludeNativeLibrariesForSelfExtract=true `
+            -p:DebugType=None `
+            -p:DebugSymbols=false `
+            -o .\artifacts\ci-win-x64
+
+      - name: Upload CI build
+        uses: actions/upload-artifact@v4
+        with:
+          name: Codex-Limits-Windows-ci-win-x64
+          path: artifacts/ci-win-x64
+          if-no-files-found: error

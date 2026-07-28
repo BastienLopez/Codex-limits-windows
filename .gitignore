@@ -1,8 +1,41 @@
+# Visual Studio / .NET
 .vs/
 .vscode/
+.idea/
 **/bin/
 **/obj/
 artifacts/
 TestResults/
 *.user
 *.suo
+*.rsuser
+*.userosscache
+*.sln.docstates
+
+# Temporary and backup files
+*.bak
+*.bak-*
+*.tmp
+*.temp
+*~
+.DS_Store
+Thumbs.db
+
+# Local configuration and logs
+.env
+.env.*
+!.env.example
+*.log
+
+# Signing material — never commit private certificates or keys
+*.pfx
+*.p12
+*.snk
+*.pem
+*.key
+
+# Locally generated release archives
+*.nupkg
+*.snupkg
+artifacts-*.zip
+Codex-Limits-Windows-*-win-*.zip
